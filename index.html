@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Peek</title>
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png"> 
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Trivia Peek">
+    </head>
+<body>
+    <div id="warning-screen">
+        <h1 id="warning-header">WARNING</h1>
+        <p id="warning-body">The following movie trivia game is rated R with all questions and answers listed exactly as they are established in their respective film releases. Trivia Peek may not be suitable for children, the easily offended, or any lipstick-wearing felt monkeys wearing plaid.</p>
+        <p id="warning-footer">Continue at your own risk.</p>
+        <button id="warning-continue-button">Proceed If You Dare!</button>
+    </div>
+
+    <div id="app-container" class="hidden">
+        <div id="genre-selection-screen">
+            <h1>Trivia Peek - Choose a Genre</h1>
+            <div id="genre-buttons">
+                <button class="genre-btn" data-genre="action">Action</button>
+                <button class="genre-btn" data-genre="horror">Horror</button>
+                <button class="genre-btn" data-genre="drama">Drama</button>
+                <button class="genre-btn" data-genre="suspense">Suspense</button>
+                <button class="genre-btn" data-genre="comedy">Comedy</button>
+                <button class="genre-btn" data-genre="kids">Kids & Family</button>
+            </div>
+            <p id="genre-feedback" class="feedback-message"></p>
+        </div>
+
+        <div id="game-container" class="hidden">
+            <h1>Trivia Peek</h1>
+            <p id="current-genre-display"></p>
+
+            <div id="scoreboard">
+                <h2>Scores</h2>
+                <p>Player 1: <span id="player1-score">0</span></p>
+                <p>Player 2: <span id="player2-score">0</span></p>
+            </div>
+
+            <p id="turn-indicator">Player 1's Turn</p>
+
+            <div id="question-area">
+                <p id="question-text">Question will appear here.</p>
+            </div>
+
+            <div id="options-area">
+                <button class="option-btn"></button>
+                <button class="option-btn"></button>
+                <button class="option-btn"></button>
+                <button class="option-btn"></button>
+            </div>
+
+            <p id="feedback-message" class="feedback-message"></p>
+
+            <button id="next-question-button" class="hidden">Next Question</button>
+
+            <div id="game-over-section" class="hidden">
+                <h2 id="game-over-message"></h2>
+                <button id="restart-button">Play Again With Same Genre</button>
+                <button id="change-genre-button">Choose Different Genre</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="correct-sound" src="correct.mp3" preload="auto"></audio>
+    <audio id="incorrect-sound" src="incorrect.mp3" preload="auto"></audio>
+
+    <script src="script.js"></script>
+</body>
+</html>
