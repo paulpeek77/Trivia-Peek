@@ -13,7 +13,14 @@
     <meta name="apple-mobile-web-app-title" content="Trivia Peek">
 </head>
 <body>
-    <div id="homescreen">
+    <div id="warning-screen">
+        <h1 id="warning-header">WARNING</h1>
+        <p id="warning-body">The following movie trivia game is rated R with all questions and answers listed exactly as they are established in their respective film releases. Trivia Peek may not be suitable for children, the easily offended, or any lipstick-wearing felt monkeys wearing plaid.</p>
+        <p id="warning-footer">Continue at your own risk.</p>
+        <button id="warning-continue-button">Proceed If You Dare!</button>
+    </div>
+
+    <div id="homescreen" class="hidden">
         <h1>Trivia Peek</h1>
         <div class="menu-box">
             <button id="create-game-btn">Create New Game</button>
@@ -40,34 +47,27 @@
         <div id="game-container" class="hidden">
             <h1>Trivia Peek</h1>
             <p id="current-genre-display"></p>
-
             <div id="scoreboard">
                 <h2>Scores</h2>
                 <p>Player 1: <span id="player1-score">0</span></p>
                 <p>Player 2: <span id="player2-score">0</span></p>
             </div>
-
             <p id="turn-indicator">Player 1's Turn</p>
-
             <div id="question-area">
-                <p id="question-text">Question will appear here.</p>
+                <p id="question-text"></p>
             </div>
-
             <div id="options-area">
                 <button class="option-btn"></button>
                 <button class="option-btn"></button>
                 <button class="option-btn"></button>
                 <button class="option-btn"></button>
             </div>
-
             <p id="feedback-message" class="feedback-message"></p>
-
             <button id="next-question-button" class="hidden">Next Question</button>
-
             <div id="game-over-section" class="hidden">
                 <h2 id="game-over-message"></h2>
-                <button id="restart-button">Play Again With Same Genre</button>
-                <button id="change-genre-button">Choose Different Genre</button>
+                <button id="restart-button">Play Again</button>
+                <button id="change-genre-button">New Game</button>
             </div>
         </div>
     </div>
