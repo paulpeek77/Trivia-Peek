@@ -1,6 +1,3 @@
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Roboto:wght@400;700&display=swap');
-
 /* General Body and Layout */
 body {
     font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -44,16 +41,16 @@ body {
 
 #warning-header {
     font-family: 'Creepster', cursive;
-    color: #cc0000;
+    color: #ff0000;
     font-size: clamp(3rem, 15vw, 6rem); /* Responsive font size */
-    text-shadow: 3px 3px 6px #000;
+    text-shadow: 2px 2px 4px #000;
     margin: 0 0 20px 0;
 }
 
 #warning-screen p {
     font-family: 'Roboto', sans-serif;
-    font-weight: 400;
-    color: #f0f0f0;
+    font-weight: 700;
+    color: #ffffff;
     font-size: clamp(1rem, 3vw, 1.2rem);
     line-height: 1.7;
     max-width: 500px;
@@ -62,13 +59,14 @@ body {
 
 #warning-footer {
     font-style: italic;
-    color: #aaa;
+    font-weight: 400;
+    color: #ccc;
 }
 
 #warning-continue-button {
-    background-color: #c00;
+    background-color: #cc0000;
     color: white;
-    border: 2px solid #800;
+    border: 2px solid #8b0000;
     padding: 15px 30px;
     font-size: 1.2em;
     font-family: 'Roboto', sans-serif;
