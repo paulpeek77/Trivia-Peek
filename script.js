@@ -155,7 +155,7 @@ function buildGenreSelectionUI(gameData) {
             <button class="genre-btn" data-genre="drama">Drama</button>
             <button class="genre-btn" data-genre="suspense">Suspense</button>
             <button class="genre-btn" data-genre="comedy">Comedy</button>
-            <button class="genre-btn" data-genre="kids">Kids & Family</button>
+            <button class="genre-btn" data-genre="family">Kids & Family</button>
         </div>
     `;
     if (currentPlayerId === gameData.hostPlayerId) {
@@ -165,37 +165,45 @@ function buildGenreSelectionUI(gameData) {
     }
 }
 
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
-
 async function handleGenreSelection(event) {
     if (currentPlayerId !== hostPlayerId) return;
     const selectedGenre = event.target.dataset.genre;
-    const questionsRef = ref(db, `questions/${selectedGenre}`);
-    const snapshot = await get(questionsRef);
+    
+    // Fetch all questions from the local questions.json data
+    try {
+        const response = await fetch('questions.json');
+        if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+        const allQuestions = await (await response.json()).questions;
+        const questionsForGenre = allQuestions[selectedGenre];
 
-    if (!snapshot.exists()) {
-        alert(`Error: Could not find questions for "${selectedGenre}" in the database.`);
-        return;
+        if (!questionsForGenre) {
+            alert(`Error: Could not find questions for "${selectedGenre}".`);
+            return;
+        }
+
+        // Shuffle the array of questions
+        for (let i = questionsForGenre.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
+        }
+
+        const updates = {
+            genre: selectedGenre,
+            shuffledQuestions: questionsForGenre,
+            currentQuestionIndex: 0,
+            'players/1/score': 0,
+            'players/2/score': 0,
+            turnState: { player: 1, answerRevealed: false },
+            gameState: 'inProgress'
+        };
+        update(ref(db, `games/${currentRoomCode}`), updates);
+
+    } catch (error) {
+        console.error('Error fetching or processing questions:', error);
+        alert('Could not start game. Failed to load questions.');
     }
-
-    const questionsForGenre = snapshot.val();
-    shuffleArray(questionsForGenre);
-
-    const updates = {
-        genre: selectedGenre,
-        shuffledQuestions: questionsForGenre,
-        currentQuestionIndex: 0,
-        'players/1/score': 0,
-        'players/2/score': 0,
-        turnState: { player: 1, answerRevealed: false },
-        gameState: 'inProgress'
-    };
-    update(ref(db, `games/${currentRoomCode}`), updates);
 }
 
 function updateGameUI(gameData) {
@@ -205,29 +213,23 @@ function updateGameUI(gameData) {
     player2ScoreDisplay.textContent = gameData.players[2]?.score || 0;
     currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
 
-    if (gameData.gameState === 'gameOver') {
-        questionArea.classList.add('hidden');
-        optionsArea.classList.add('hidden');
-        turnIndicator.classList.add('hidden');
-        feedbackMessage.textContent = '';
-        nextQuestionButton.classList.add('hidden');
-        gameOverSection.classList.remove('hidden');
-        displayGameOver(gameData);
-        return;
-    }
-    
-    // If we reach here, we are in 'inProgress' state
+    gameOverSection.classList.add('hidden');
     questionArea.classList.remove('hidden');
     optionsArea.classList.remove('hidden');
     turnIndicator.classList.remove('hidden');
 
+    if (gameData.gameState === 'gameOver') {
+        displayGameOver(gameData);
+        return;
+    }
+    
     const turnState = gameData.turnState;
     turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
 
     const questionIndex = gameData.currentQuestionIndex;
     if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
         const currentQ = gameData.shuffledQuestions[questionIndex];
-        questionText.textContent = currentQ.question;
+        questionText.textContent = currentQ.questionText;
         
         optionButtons.forEach((button, index) => {
             button.textContent = currentQ.options[index];
@@ -238,8 +240,12 @@ function updateGameUI(gameData) {
         if (turnState.answerRevealed) {
             optionButtons.forEach(button => {
                 button.disabled = true;
-                if (button.textContent === turnState.correctAnswer) button.classList.add('correct-option');
-                if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) button.classList.add('incorrect-choice');
+                if (button.textContent === turnState.correctAnswer) {
+                    button.classList.add('correct-option');
+                }
+                if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) {
+                    button.classList.add('incorrect-choice');
+                }
             });
             
             feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${turnState.correctAnswer}`;
@@ -248,8 +254,15 @@ function updateGameUI(gameData) {
             if (currentPlayerId === hostPlayerId) {
                 nextQuestionButton.classList.remove('hidden');
                 nextQuestionButton.focus();
+            } else {
+                nextQuestionButton.classList.add('hidden');
             }
+
         } else {
+            optionButtons.forEach(button => {
+                // Enable buttons for the current player, disable for the other
+                button.disabled = (currentPlayerId !== turnState.player);
+            });
             feedbackMessage.textContent = '';
             nextQuestionButton.classList.add('hidden');
         }
@@ -260,17 +273,17 @@ async function handleOptionClick(event) {
     const gameRef = ref(db, 'games/' + currentRoomCode);
     const snapshot = await get(gameRef);
     const gameData = snapshot.val();
+    
     if (!gameData || currentPlayerId !== gameData.turnState.player || gameData.turnState.answerRevealed) return;
 
     const userAnswer = event.target.textContent;
-    const correctAnswer = gameData.shuffledQuestions[gameData.currentQuestionIndex].answer;
+    const correctAnswer = gameData.shuffledQuestions[gameData.currentQuestionIndex].correctAnswer;
     let newScore = gameData.players[currentPlayerId].score;
 
     if (userAnswer === correctAnswer) {
         newScore++;
         if (correctSound) correctSound.play();
     } else {
-        newScore--;
         if (incorrectSound) incorrectSound.play();
     }
 
@@ -285,12 +298,14 @@ async function handleOptionClick(event) {
 
 async function nextQuestion() {
     if (currentPlayerId !== hostPlayerId) return;
+
     const gameRef = ref(db, 'games/' + currentRoomCode);
     const snapshot = await get(gameRef);
     const gameData = snapshot.val();
     const nextQuestionIndex = gameData.currentQuestionIndex + 1;
 
-    if (nextQuestionIndex >= gameData.shuffledQuestions.length) {
+    // Check if the game is over (e.g., after 10 questions)
+    if (nextQuestionIndex >= 10) {
         update(gameRef, { gameState: 'gameOver' });
         return;
     }
@@ -305,13 +320,33 @@ async function nextQuestion() {
 }
 
 function displayGameOver(gameData) {
+    questionArea.classList.add('hidden');
+    optionsArea.classList.add('hidden');
+    turnIndicator.classList.add('hidden');
+    feedbackMessage.textContent = '';
+    nextQuestionButton.classList.add('hidden');
+    gameOverSection.classList.remove('hidden');
+
     const p1Score = gameData.players[1].score;
     const p2Score = gameData.players[2].score;
     let winnerMessageText;
-    if (p1Score > p2Score) winnerMessageText = "Player 1 Wins!";
-    else if (p2Score > p1Score) winnerMessageText = "Player 2 Wins!";
-    else winnerMessageText = "It's a Tie!";
-    gameOverMessage.textContent = `Game Over! ${winnerMessageText}\nFinal Score - P1: ${p1Score}, P2: ${p2Score}`;
+
+    if (p1Score > p2Score) {
+        winnerMessageText = "Player 1 Wins!";
+    } else if (p2Score > p1Score) {
+        winnerMessageText = "Player 2 Wins!";
+    } else {
+        winnerMessageText = "It's a Tie!";
+    }
+    gameOverMessage.textContent = `Game Over! ${winnerMessageText}\n\nFinal Score:\nPlayer 1: ${p1Score}\nPlayer 2: ${p2Score}`;
+    
+    if (currentPlayerId !== hostPlayerId) {
+        restartButton.classList.add('hidden');
+        changeGenreButton.textContent = "Return to Home";
+    } else {
+        restartButton.classList.remove('hidden');
+        changeGenreButton.textContent = "New Game";
+    }
 }
 
 
@@ -331,17 +366,46 @@ function initializeApp() {
     
     restartButton?.addEventListener('click', async () => {
         if (currentPlayerId !== hostPlayerId) return;
-        const snapshot = await get(ref(db, `games/${currentRoomCode}/genre`));
-        const genre = snapshot.val();
-        if (genre) {
-            await handleGenreSelection({ target: { dataset: { genre } } });
+        
+        const gameRef = ref(db, `games/${currentRoomCode}`);
+        const snapshot = await get(gameRef);
+        const gameData = snapshot.val();
+
+        if (gameData && gameData.genre) {
+            // Re-fetch and re-shuffle questions for the same genre
+            try {
+                const response = await fetch('questions.json');
+                 if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const allQuestions = await (await response.json()).questions;
+                const questionsForGenre = allQuestions[gameData.genre];
+        
+                for (let i = questionsForGenre.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
+                }
+        
+                const updates = {
+                    shuffledQuestions: questionsForGenre,
+                    currentQuestionIndex: 0,
+                    'players/1/score': 0,
+                    'players/2/score': 0,
+                    turnState: { player: 1, answerRevealed: false },
+                    gameState: 'inProgress'
+                };
+                update(ref(db, `games/${currentRoomCode}`), updates);
+        
+            } catch (error) {
+                console.error('Error restarting game:', error);
+                alert('Could not restart the game.');
+            }
         }
     });
     
-    changeGenreButton?.addEventListener('click', () => {
-        // Host deletes the room, everyone else will get kicked by the listener
+    changeGenreButton?.addEventListener('click', async () => {
         if (currentRoomCode && currentPlayerId === hostPlayerId) {
-            remove(ref(db, 'games/' + currentRoomCode));
+            await remove(ref(db, 'games/' + currentRoomCode));
         }
         window.location.reload();
     });
