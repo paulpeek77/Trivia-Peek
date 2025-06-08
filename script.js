@@ -1,6 +1,6 @@
 // Import the functions you need from Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-import { getDatabase, ref, set, onValue, get, update } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+import { getDatabase, ref, set, onValue, get, update, remove } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -19,6 +19,8 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // --- DOM ELEMENTS ---
+const warningScreen = document.getElementById('warning-screen');
+const warningContinueButton = document.getElementById('warning-continue-button');
 const homescreen = document.getElementById('homescreen');
 const createGameBtn = document.getElementById('create-game-btn');
 const roomCodeInput = document.getElementById('room-code-input');
@@ -45,15 +47,11 @@ const changeGenreButton = document.getElementById('change-genre-button');
 const questionArea = document.getElementById('question-area');
 const correctSound = document.getElementById('correct-sound');
 const incorrectSound = document.getElementById('incorrect-sound');
-// The warning screen elements are only used in the static HTML now
-const warningScreen = document.getElementById('warning-screen');
-const warningContinueButton = document.getElementById('warning-continue-button');
 
 // --- GAME STATE VARIABLES ---
 let currentRoomCode = null;
 let currentPlayerId = null;
 let hostPlayerId = null;
-let allQuestions = {}; // This is now intentionally empty!
 
 // --- CORE FUNCTIONS ---
 
@@ -62,38 +60,52 @@ function generateRoomCode() {
 }
 
 async function createGame() {
-    currentRoomCode = generateRoomCode();
-    currentPlayerId = 1;
-    hostPlayerId = 1;
-    const initialGameState = {
-        gameState: 'lobby',
-        players: { 1: { connected: true, score: 0 }, 2: { connected: false, score: 0 } },
-        hostPlayerId: 1
-    };
-    await set(ref(db, 'games/' + currentRoomCode), initialGameState);
-    listenToGameChanges(currentRoomCode);
+    homescreen.classList.add('hidden');
+    lobbyScreen.classList.remove('hidden');
+    
+    try {
+        currentRoomCode = generateRoomCode();
+        currentPlayerId = 1;
+        hostPlayerId = 1;
+        const initialGameState = {
+            gameState: 'lobby',
+            players: { 1: { connected: true, score: 0 }, 2: { connected: false, score: 0 } },
+            hostPlayerId: 1
+        };
+        await set(ref(db, 'games/' + currentRoomCode), initialGameState);
+        listenToGameChanges(currentRoomCode);
+    } catch (error) {
+        console.error("Error creating game:", error);
+        errorMessage.textContent = "Could not create game. Check connection.";
+    }
 }
 
 async function joinGame() {
     const code = roomCodeInput.value.trim().toUpperCase();
     if (!code) { errorMessage.textContent = 'Please enter a room code.'; return; }
     errorMessage.textContent = '';
-    const gameRef = ref(db, 'games/' + code);
-    const snapshot = await get(gameRef);
-    if (snapshot.exists()) {
-        const gameData = snapshot.val();
-        if (gameData.players[2] && gameData.players[2].connected) {
-            errorMessage.textContent = 'This room is already full.';
+
+    try {
+        const gameRef = ref(db, 'games/' + code);
+        const snapshot = await get(gameRef);
+        if (snapshot.exists()) {
+            const gameData = snapshot.val();
+            if (gameData.players[2] && gameData.players[2].connected) {
+                errorMessage.textContent = 'This room is already full.';
+            } else {
+                currentRoomCode = code;
+                currentPlayerId = 2;
+                hostPlayerId = gameData.hostPlayerId;
+                const updates = { '/players/2/connected': true, '/gameState': 'selectingGenre' };
+                await update(gameRef, updates);
+                listenToGameChanges(currentRoomCode);
+            }
         } else {
-            currentRoomCode = code;
-            currentPlayerId = 2;
-            hostPlayerId = gameData.hostPlayerId;
-            const updates = { '/players/2/connected': true, '/gameState': 'selectingGenre' };
-            await update(gameRef, updates);
-            listenToGameChanges(currentRoomCode);
+            errorMessage.textContent = 'Room code not found.';
         }
-    } else {
-        errorMessage.textContent = 'Room code not found.';
+    } catch (error) {
+        console.error("Error joining game:", error);
+        errorMessage.textContent = "Could not join game. Check code or connection.";
     }
 }
 
@@ -101,17 +113,16 @@ function listenToGameChanges(roomCode) {
     const gameRef = ref(db, 'games/' + roomCode);
     onValue(gameRef, (snapshot) => {
         if (!snapshot.exists()) {
-            alert("Game room has closed or does not exist.");
+            alert("Game room has closed.");
             window.location.reload();
             return;
         }
         const gameData = snapshot.val();
         
-        // Hide all major screen containers first, then show the correct one
         homescreen.classList.add('hidden');
         lobbyScreen.classList.add('hidden');
         appContainer.classList.add('hidden');
-        
+
         switch (gameData.gameState) {
             case 'lobby':
                 lobbyScreen.classList.remove('hidden');
@@ -124,23 +135,11 @@ function listenToGameChanges(roomCode) {
                 buildGenreSelectionUI(gameData);
                 break;
             case 'inProgress':
+            case 'gameOver': // Both inProgress and gameOver show the game container
                 appContainer.classList.remove('hidden');
                 gameContainer.classList.remove('hidden');
                 genreSelectionScreen.classList.add('hidden');
-                gameOverSection.classList.add('hidden');
                 updateGameUI(gameData);
-                break;
-            case 'gameOver':
-                appContainer.classList.remove('hidden');
-                gameContainer.classList.remove('hidden');
-                gameOverSection.classList.remove('hidden');
-                genreSelectionScreen.classList.add('hidden');
-                questionArea.classList.add('hidden');
-                optionsArea.classList.add('hidden');
-                turnIndicator.classList.add('hidden');
-                feedbackMessage.textContent = '';
-                nextQuestionButton.classList.add('hidden');
-                displayGameOver(gameData);
                 break;
         }
     });
@@ -176,13 +175,11 @@ function shuffleArray(array) {
 async function handleGenreSelection(event) {
     if (currentPlayerId !== hostPlayerId) return;
     const selectedGenre = event.target.dataset.genre;
-    
-    // Fetch the list of questions from the 'questions' node in Firebase
     const questionsRef = ref(db, `questions/${selectedGenre}`);
     const snapshot = await get(questionsRef);
 
     if (!snapshot.exists()) {
-        alert(`Error: Could not find questions for the genre "${selectedGenre}" in the database.`);
+        alert(`Error: Could not find questions for "${selectedGenre}" in the database.`);
         return;
     }
 
@@ -206,44 +203,55 @@ function updateGameUI(gameData) {
     
     player1ScoreDisplay.textContent = gameData.players[1]?.score || 0;
     player2ScoreDisplay.textContent = gameData.players[2]?.score || 0;
+    currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
+
+    if (gameData.gameState === 'gameOver') {
+        questionArea.classList.add('hidden');
+        optionsArea.classList.add('hidden');
+        turnIndicator.classList.add('hidden');
+        feedbackMessage.textContent = '';
+        nextQuestionButton.classList.add('hidden');
+        gameOverSection.classList.remove('hidden');
+        displayGameOver(gameData);
+        return;
+    }
     
-    if (gameData.gameState === 'inProgress') {
-        questionArea.classList.remove('hidden');
-        optionsArea.classList.remove('hidden');
-        turnIndicator.classList.remove('hidden');
+    // If we reach here, we are in 'inProgress' state
+    questionArea.classList.remove('hidden');
+    optionsArea.classList.remove('hidden');
+    turnIndicator.classList.remove('hidden');
+
+    const turnState = gameData.turnState;
+    turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
+
+    const questionIndex = gameData.currentQuestionIndex;
+    if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
+        const currentQ = gameData.shuffledQuestions[questionIndex];
+        questionText.textContent = currentQ.question;
         
-        const turnState = gameData.turnState;
-        turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
+        optionButtons.forEach((button, index) => {
+            button.textContent = currentQ.options[index];
+            button.disabled = false;
+            button.className = 'option-btn';
+        });
 
-        const questionIndex = gameData.currentQuestionIndex;
-        if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
-            const currentQ = gameData.shuffledQuestions[questionIndex];
-            questionText.textContent = currentQ.question;
-            
-            optionButtons.forEach((button, index) => {
-                button.textContent = currentQ.options[index];
-                button.disabled = false;
-                button.className = 'option-btn';
+        if (turnState.answerRevealed) {
+            optionButtons.forEach(button => {
+                button.disabled = true;
+                if (button.textContent === turnState.correctAnswer) button.classList.add('correct-option');
+                if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) button.classList.add('incorrect-choice');
             });
-
-            if (turnState.answerRevealed) {
-                optionButtons.forEach(button => {
-                    button.disabled = true;
-                    if (button.textContent === turnState.correctAnswer) button.classList.add('correct-option');
-                    if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) button.classList.add('incorrect-choice');
-                });
-                
-                feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${turnState.correctAnswer}`;
-                feedbackMessage.className = (turnState.chosenAnswer === turnState.correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
-                
-                if (currentPlayerId === hostPlayerId) {
-                    nextQuestionButton.classList.remove('hidden');
-                    nextQuestionButton.focus();
-                }
-            } else {
-                feedbackMessage.textContent = '';
-                nextQuestionButton.classList.add('hidden');
+            
+            feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${turnState.correctAnswer}`;
+            feedbackMessage.className = (turnState.chosenAnswer === turnState.correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
+            
+            if (currentPlayerId === hostPlayerId) {
+                nextQuestionButton.classList.remove('hidden');
+                nextQuestionButton.focus();
             }
+        } else {
+            feedbackMessage.textContent = '';
+            nextQuestionButton.classList.add('hidden');
         }
     }
 }
@@ -306,9 +314,15 @@ function displayGameOver(gameData) {
     gameOverMessage.textContent = `Game Over! ${winnerMessageText}\nFinal Score - P1: ${p1Score}, P2: ${p2Score}`;
 }
 
-function initializeAppLogic() {
-    // Show the appropriate initial screen. Hide warning if already seen.
-    homescreen.classList.remove('hidden');
+
+// --- INITIALIZATION & EVENT LISTENERS ---
+function initializeApp() {
+    // Attach listeners to the buttons that are always present on the page
+    warningContinueButton?.addEventListener('click', () => {
+        localStorage.setItem('triviaPeekWarningSeen', 'true');
+        warningScreen.classList.add('hidden');
+        homescreen.classList.remove('hidden');
+    });
 
     createGameBtn?.addEventListener('click', createGame);
     joinGameBtn?.addEventListener('click', joinGame);
@@ -323,23 +337,23 @@ function initializeAppLogic() {
             await handleGenreSelection({ target: { dataset: { genre } } });
         }
     });
+    
     changeGenreButton?.addEventListener('click', () => {
-        // A simple reload is the easiest way to reset the state for a new game
-        const gameRef = ref(db, 'games/' + currentRoomCode);
-        set(gameRef, null); // Deletes the game room
+        // Host deletes the room, everyone else will get kicked by the listener
+        if (currentRoomCode && currentPlayerId === hostPlayerId) {
+            remove(ref(db, 'games/' + currentRoomCode));
+        }
         window.location.reload();
     });
+
+    // Check if the warning has been seen before to decide the initial screen
+    if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
+        warningScreen.classList.add('hidden');
+        homescreen.classList.remove('hidden');
+    } else {
+        warningScreen.classList.remove('hidden');
+    }
 }
 
-// Check if warning has been seen. Using localStorage for this.
-if (localStorage.getItem('triviaPeekWarningSeen')) {
-    warningScreen.classList.add('hidden');
-    initializeAppLogic();
-} else {
-    warningScreen.classList.remove('hidden');
-    warningContinueButton?.addEventListener('click', () => {
-        localStorage.setItem('triviaPeekWarningSeen', 'true');
-        warningScreen.classList.add('hidden');
-        initializeAppLogic();
-    });
-}
+// Start the entire application logic
+initializeApp();
