@@ -45,12 +45,15 @@ const changeGenreButton = document.getElementById('change-genre-button');
 const questionArea = document.getElementById('question-area');
 const correctSound = document.getElementById('correct-sound');
 const incorrectSound = document.getElementById('incorrect-sound');
+// The warning screen elements are only used in the static HTML now
+const warningScreen = document.getElementById('warning-screen');
+const warningContinueButton = document.getElementById('warning-continue-button');
 
 // --- GAME STATE VARIABLES ---
 let currentRoomCode = null;
 let currentPlayerId = null;
 let hostPlayerId = null;
-// The giant allQuestions object is no longer stored here!
+let allQuestions = {}; // This is now intentionally empty!
 
 // --- CORE FUNCTIONS ---
 
@@ -59,54 +62,38 @@ function generateRoomCode() {
 }
 
 async function createGame() {
-    try {
-        currentRoomCode = generateRoomCode();
-        currentPlayerId = 1;
-        hostPlayerId = 1;
-        const initialGameState = {
-            gameState: 'lobby',
-            players: { 1: { connected: true, score: 0 }, 2: { connected: false, score: 0 } },
-            hostPlayerId: 1
-        };
-        await set(ref(db, 'games/' + currentRoomCode), initialGameState);
-        listenToGameChanges(currentRoomCode);
-    } catch (error) {
-        console.error("Error creating game:", error);
-        errorMessage.textContent = "Could not create game. Check connection.";
-    }
+    currentRoomCode = generateRoomCode();
+    currentPlayerId = 1;
+    hostPlayerId = 1;
+    const initialGameState = {
+        gameState: 'lobby',
+        players: { 1: { connected: true, score: 0 }, 2: { connected: false, score: 0 } },
+        hostPlayerId: 1
+    };
+    await set(ref(db, 'games/' + currentRoomCode), initialGameState);
+    listenToGameChanges(currentRoomCode);
 }
 
 async function joinGame() {
     const code = roomCodeInput.value.trim().toUpperCase();
-    if (!code) {
-        errorMessage.textContent = 'Please enter a room code.';
-        return;
-    }
+    if (!code) { errorMessage.textContent = 'Please enter a room code.'; return; }
     errorMessage.textContent = '';
-    try {
-        const gameRef = ref(db, 'games/' + code);
-        const snapshot = await get(gameRef);
-        if (snapshot.exists()) {
-            const gameData = snapshot.val();
-            if (gameData.players[2] && gameData.players[2].connected) {
-                errorMessage.textContent = 'This room is already full.';
-            } else {
-                currentRoomCode = code;
-                currentPlayerId = 2;
-                hostPlayerId = gameData.hostPlayerId;
-                const updates = {
-                    '/players/2/connected': true,
-                    '/gameState': 'selectingGenre'
-                };
-                await update(gameRef, updates);
-                listenToGameChanges(currentRoomCode);
-            }
+    const gameRef = ref(db, 'games/' + code);
+    const snapshot = await get(gameRef);
+    if (snapshot.exists()) {
+        const gameData = snapshot.val();
+        if (gameData.players[2] && gameData.players[2].connected) {
+            errorMessage.textContent = 'This room is already full.';
         } else {
-            errorMessage.textContent = 'Room code not found.';
+            currentRoomCode = code;
+            currentPlayerId = 2;
+            hostPlayerId = gameData.hostPlayerId;
+            const updates = { '/players/2/connected': true, '/gameState': 'selectingGenre' };
+            await update(gameRef, updates);
+            listenToGameChanges(currentRoomCode);
         }
-    } catch (error) {
-        console.error("Error joining game:", error);
-        errorMessage.textContent = "Could not join game. Check code or connection.";
+    } else {
+        errorMessage.textContent = 'Room code not found.';
     }
 }
 
@@ -188,10 +175,9 @@ function shuffleArray(array) {
 
 async function handleGenreSelection(event) {
     if (currentPlayerId !== hostPlayerId) return;
-
     const selectedGenre = event.target.dataset.genre;
     
-    // Fetch the list of questions for the selected genre from Firebase's root
+    // Fetch the list of questions from the 'questions' node in Firebase
     const questionsRef = ref(db, `questions/${selectedGenre}`);
     const snapshot = await get(questionsRef);
 
@@ -200,7 +186,7 @@ async function handleGenreSelection(event) {
         return;
     }
 
-    const questionsForGenre = Object.values(snapshot.val());
+    const questionsForGenre = snapshot.val();
     shuffleArray(questionsForGenre);
 
     const updates = {
@@ -218,19 +204,19 @@ async function handleGenreSelection(event) {
 function updateGameUI(gameData) {
     if (!gameData || !gameData.players) return;
     
-    // This part runs for both 'inProgress' and 'gameOver' to show final scores
     player1ScoreDisplay.textContent = gameData.players[1]?.score || 0;
     player2ScoreDisplay.textContent = gameData.players[2]?.score || 0;
     
     if (gameData.gameState === 'inProgress') {
+        questionArea.classList.remove('hidden');
+        optionsArea.classList.remove('hidden');
+        turnIndicator.classList.remove('hidden');
+        
         const turnState = gameData.turnState;
         turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
 
         const questionIndex = gameData.currentQuestionIndex;
         if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
-            questionArea.classList.remove('hidden');
-            optionsArea.classList.remove('hidden');
-            turnIndicator.classList.remove('hidden');
             const currentQ = gameData.shuffledQuestions[questionIndex];
             questionText.textContent = currentQ.question;
             
@@ -266,7 +252,6 @@ async function handleOptionClick(event) {
     const gameRef = ref(db, 'games/' + currentRoomCode);
     const snapshot = await get(gameRef);
     const gameData = snapshot.val();
-
     if (!gameData || currentPlayerId !== gameData.turnState.player || gameData.turnState.answerRevealed) return;
 
     const userAnswer = event.target.textContent;
@@ -295,7 +280,6 @@ async function nextQuestion() {
     const gameRef = ref(db, 'games/' + currentRoomCode);
     const snapshot = await get(gameRef);
     const gameData = snapshot.val();
-
     const nextQuestionIndex = gameData.currentQuestionIndex + 1;
 
     if (nextQuestionIndex >= gameData.shuffledQuestions.length) {
@@ -322,17 +306,10 @@ function displayGameOver(gameData) {
     gameOverMessage.textContent = `Game Over! ${winnerMessageText}\nFinal Score - P1: ${p1Score}, P2: ${p2Score}`;
 }
 
-
 function initializeAppLogic() {
-    // Initial state on page load: show the warning screen.
-    warningScreen.classList.remove('hidden');
-    homescreen.classList.add('hidden');
-    appContainer.classList.add('hidden');
+    // Show the appropriate initial screen. Hide warning if already seen.
+    homescreen.classList.remove('hidden');
 
-    warningContinueButton?.addEventListener('click', () => {
-        warningScreen.classList.add('hidden');
-        homescreen.classList.remove('hidden');
-    });
     createGameBtn?.addEventListener('click', createGame);
     joinGameBtn?.addEventListener('click', joinGame);
     optionButtons.forEach(button => button.addEventListener('click', handleOptionClick));
@@ -347,8 +324,22 @@ function initializeAppLogic() {
         }
     });
     changeGenreButton?.addEventListener('click', () => {
+        // A simple reload is the easiest way to reset the state for a new game
+        const gameRef = ref(db, 'games/' + currentRoomCode);
+        set(gameRef, null); // Deletes the game room
         window.location.reload();
     });
 }
 
-initializeAppLogic();
+// Check if warning has been seen. Using localStorage for this.
+if (localStorage.getItem('triviaPeekWarningSeen')) {
+    warningScreen.classList.add('hidden');
+    initializeAppLogic();
+} else {
+    warningScreen.classList.remove('hidden');
+    warningContinueButton?.addEventListener('click', () => {
+        localStorage.setItem('triviaPeekWarningSeen', 'true');
+        warningScreen.classList.add('hidden');
+        initializeAppLogic();
+    });
+}
