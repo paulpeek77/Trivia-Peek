@@ -62,7 +62,7 @@ function generateRoomCode() {
 async function createGame() {
     homescreen.classList.add('hidden');
     lobbyScreen.classList.remove('hidden');
-    
+
     try {
         currentRoomCode = generateRoomCode();
         currentPlayerId = 1;
@@ -118,7 +118,7 @@ function listenToGameChanges(roomCode) {
             return;
         }
         const gameData = snapshot.val();
-        
+
         homescreen.classList.add('hidden');
         lobbyScreen.classList.add('hidden');
         appContainer.classList.add('hidden');
@@ -168,15 +168,15 @@ function buildGenreSelectionUI(gameData) {
 async function handleGenreSelection(event) {
     if (currentPlayerId !== hostPlayerId) return;
     const selectedGenre = event.target.dataset.genre;
-    
+
     // Fetch all questions from the local questions.json data
     try {
         const response = await fetch('questions.json');
         if (!response.ok) {
             throw new Error('Network response was not ok ' + response.statusText);
         }
-        const allQuestions = await (await response.json()).questions;
-        const questionsForGenre = allQuestions[selectedGenre];
+        const allQuestionsData = await response.json();
+        const questionsForGenre = allQuestionsData.questions[selectedGenre];
 
         if (!questionsForGenre) {
             alert(`Error: Could not find questions for "${selectedGenre}".`);
@@ -208,7 +208,7 @@ async function handleGenreSelection(event) {
 
 function updateGameUI(gameData) {
     if (!gameData || !gameData.players) return;
-    
+
     player1ScoreDisplay.textContent = gameData.players[1]?.score || 0;
     player2ScoreDisplay.textContent = gameData.players[2]?.score || 0;
     currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
@@ -222,7 +222,7 @@ function updateGameUI(gameData) {
         displayGameOver(gameData);
         return;
     }
-    
+
     const turnState = gameData.turnState;
     turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
 
@@ -230,7 +230,7 @@ function updateGameUI(gameData) {
     if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
         const currentQ = gameData.shuffledQuestions[questionIndex];
         questionText.textContent = currentQ.questionText;
-        
+
         optionButtons.forEach((button, index) => {
             button.textContent = currentQ.options[index];
             button.disabled = false;
@@ -247,10 +247,10 @@ function updateGameUI(gameData) {
                     button.classList.add('incorrect-choice');
                 }
             });
-            
+
             feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${turnState.correctAnswer}`;
             feedbackMessage.className = (turnState.chosenAnswer === turnState.correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
-            
+
             if (currentPlayerId === hostPlayerId) {
                 nextQuestionButton.classList.remove('hidden');
                 nextQuestionButton.focus();
@@ -273,7 +273,7 @@ async function handleOptionClick(event) {
     const gameRef = ref(db, 'games/' + currentRoomCode);
     const snapshot = await get(gameRef);
     const gameData = snapshot.val();
-    
+
     if (!gameData || currentPlayerId !== gameData.turnState.player || gameData.turnState.answerRevealed) return;
 
     const userAnswer = event.target.textContent;
@@ -292,7 +292,7 @@ async function handleOptionClick(event) {
     updates[`/turnState/answerRevealed`] = true;
     updates[`/turnState/chosenAnswer`] = userAnswer;
     updates[`/turnState/correctAnswer`] = correctAnswer;
-    
+
     update(gameRef, updates);
 }
 
@@ -315,7 +315,7 @@ async function nextQuestion() {
         currentQuestionIndex: nextQuestionIndex,
         turnState: { player: nextPlayer, answerRevealed: false }
     };
-    
+
     update(gameRef, updates);
 }
 
@@ -339,7 +339,7 @@ function displayGameOver(gameData) {
         winnerMessageText = "It's a Tie!";
     }
     gameOverMessage.textContent = `Game Over! ${winnerMessageText}\n\nFinal Score:\nPlayer 1: ${p1Score}\nPlayer 2: ${p2Score}`;
-    
+
     if (currentPlayerId !== hostPlayerId) {
         restartButton.classList.add('hidden');
         changeGenreButton.textContent = "Return to Home";
@@ -363,10 +363,10 @@ function initializeApp() {
     joinGameBtn?.addEventListener('click', joinGame);
     optionButtons.forEach(button => button.addEventListener('click', handleOptionClick));
     nextQuestionButton?.addEventListener('click', nextQuestion);
-    
+
     restartButton?.addEventListener('click', async () => {
         if (currentPlayerId !== hostPlayerId) return;
-        
+
         const gameRef = ref(db, `games/${currentRoomCode}`);
         const snapshot = await get(gameRef);
         const gameData = snapshot.val();
@@ -378,14 +378,14 @@ function initializeApp() {
                  if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
-                const allQuestions = await (await response.json()).questions;
-                const questionsForGenre = allQuestions[gameData.genre];
-        
+                const allQuestionsData = await response.json();
+                const questionsForGenre = allQuestionsData.questions[gameData.genre];
+
                 for (let i = questionsForGenre.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
                 }
-        
+
                 const updates = {
                     shuffledQuestions: questionsForGenre,
                     currentQuestionIndex: 0,
@@ -395,14 +395,14 @@ function initializeApp() {
                     gameState: 'inProgress'
                 };
                 update(ref(db, `games/${currentRoomCode}`), updates);
-        
+
             } catch (error) {
                 console.error('Error restarting game:', error);
                 alert('Could not restart the game.');
             }
         }
     });
-    
+
     changeGenreButton?.addEventListener('click', async () => {
         if (currentRoomCode && currentPlayerId === hostPlayerId) {
             await remove(ref(db, 'games/' + currentRoomCode));
