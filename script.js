@@ -169,21 +169,20 @@ async function handleGenreSelection(event) {
     if (currentPlayerId !== hostPlayerId) return;
     const selectedGenre = event.target.dataset.genre;
 
-    // Fetch all questions from the local questions.json data
     try {
-        const response = await fetch('questions.json');
-        if (!response.ok) {
-            throw new Error('Network response was not ok ' + response.statusText);
-        }
-        const allQuestionsData = await response.json();
-        const questionsForGenre = allQuestionsData.questions[selectedGenre];
+        const questionsRef = ref(db, `questions/${selectedGenre}`);
+        const snapshot = await get(questionsRef);
 
-        if (!questionsForGenre) {
-            alert(`Error: Could not find questions for "${selectedGenre}".`);
-            return;
+        if (!snapshot.exists()) {
+            throw new Error(`Genre "${selectedGenre}" not found in the database.`);
+        }
+        
+        let questionsForGenre = snapshot.val();
+        
+        if (typeof questionsForGenre === 'object' && !Array.isArray(questionsForGenre)) {
+            questionsForGenre = Object.values(questionsForGenre);
         }
 
-        // Shuffle the array of questions
         for (let i = questionsForGenre.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
@@ -201,8 +200,8 @@ async function handleGenreSelection(event) {
         update(ref(db, `games/${currentRoomCode}`), updates);
 
     } catch (error) {
-        console.error('Error fetching or processing questions:', error);
-        alert('Could not start game. Failed to load questions.');
+        console.error('Error fetching or processing questions from Firebase:', error);
+        alert('Could not start game. Failed to load questions from the database.');
     }
 }
 
@@ -260,7 +259,6 @@ function updateGameUI(gameData) {
 
         } else {
             optionButtons.forEach(button => {
-                // Enable buttons for the current player, disable for the other
                 button.disabled = (currentPlayerId !== turnState.player);
             });
             feedbackMessage.textContent = '';
@@ -304,7 +302,6 @@ async function nextQuestion() {
     const gameData = snapshot.val();
     const nextQuestionIndex = gameData.currentQuestionIndex + 1;
 
-    // Check if the game is over (e.g., after 10 questions)
     if (nextQuestionIndex >= 10) {
         update(gameRef, { gameState: 'gameOver' });
         return;
@@ -352,7 +349,6 @@ function displayGameOver(gameData) {
 
 // --- INITIALIZATION & EVENT LISTENERS ---
 function initializeApp() {
-    // Attach listeners to the buttons that are always present on the page
     warningContinueButton?.addEventListener('click', () => {
         localStorage.setItem('triviaPeekWarningSeen', 'true');
         warningScreen.classList.add('hidden');
@@ -372,14 +368,18 @@ function initializeApp() {
         const gameData = snapshot.val();
 
         if (gameData && gameData.genre) {
-            // Re-fetch and re-shuffle questions for the same genre
             try {
-                const response = await fetch('questions.json');
-                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                const questionsRef = ref(db, `questions/${gameData.genre}`);
+                const snapshot = await get(questionsRef);
+
+                if (!snapshot.exists()) {
+                    throw new Error(`Genre "${gameData.genre}" not found in the database.`);
                 }
-                const allQuestionsData = await response.json();
-                const questionsForGenre = allQuestionsData.questions[gameData.genre];
+                
+                let questionsForGenre = snapshot.val();
+                if (typeof questionsForGenre === 'object' && !Array.isArray(questionsForGenre)) {
+                    questionsForGenre = Object.values(questionsForGenre);
+                }
 
                 for (let i = questionsForGenre.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -410,13 +410,12 @@ function initializeApp() {
         window.location.reload();
     });
 
-    // Check if the warning has been seen before to decide the initial screen
     if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
         warningScreen.classList.add('hidden');
         homescreen.classList.remove('hidden');
     } else {
         warningScreen.classList.remove('hidden');
-    } //
+    }
 }
 
 // Start the entire application logic
