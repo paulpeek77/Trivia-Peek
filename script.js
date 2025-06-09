@@ -1,1 +1,0 @@
-alert("The digital spirits have received this message!");
