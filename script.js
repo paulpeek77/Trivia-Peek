@@ -416,7 +416,7 @@ function initializeApp() {
         homescreen.classList.remove('hidden');
     } else {
         warningScreen.classList.remove('hidden');
-    }
+    } //
 }
 
 // Start the entire application logic
