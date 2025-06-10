@@ -1,7 +1,7 @@
 //
-// The Way of the High Pimp - The TRULY Corrected Scroll
-// Changes:
-// 1. All Firebase functions updated to use the proper V9 compatibility syntax.
+// The Way of the High Pimp - The FINAL Corrected Scroll
+// Change: A single 'ref' command was missing its proper 'firebase.database' title.
+// This final version corrects that oversight.
 //
 
 // Your web app's Firebase configuration
@@ -116,8 +116,14 @@ function listenToGameChanges(roomCode) {
     const gameRef = firebase.database.ref(db, 'games/' + roomCode);
     firebase.database.onValue(gameRef, (snapshot) => {
         if (!snapshot.exists()) {
-            alert("Game room has closed.");
-            window.location.reload();
+            if (document.getElementById('app-container').classList.contains('hidden')) {
+                // If we are on the homescreen/lobby, just reload
+                window.location.reload();
+            } else {
+                // If in game, show a message
+                alert("The game room has been closed by the host.");
+                window.location.reload();
+            }
             return;
         }
         const gameData = snapshot.val();
@@ -126,12 +132,9 @@ function listenToGameChanges(roomCode) {
 }
 
 function updateUIBasedOnGameState(gameData) {
-    // This function populates the UI based on the current state of the game.
-    // Hides all major containers first, then shows the correct one.
     homescreen.classList.add('hidden');
     lobbyScreen.classList.add('hidden');
     appContainer.classList.add('hidden');
-    warningScreen.classList.add('hidden'); // Also hide warning screen
 
     switch (gameData.gameState) {
         case 'lobby':
@@ -195,4 +198,216 @@ async function handleGenreSelection(event) {
                 currentQuestionIndex: 0,
                 'players/1/score': 0,
                 'players/2/score': 0,
-                turnState: { player: 1, answerRevealed:.docs-gm-menu-caption-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:16px;color:#202124;font-family:'Google Sans',Roboto,Arial,sans-serif;font-size:14px;letter-spacing:0.25px;line-height:20px}
+                turnState: { player: 1, answerRevealed: false },
+                gameState: 'inProgress'
+            };
+            await firebase.database.update(gameRef, updates);
+        } else {
+             alert('Error: Could not find questions for "' + selectedGenre + '" in the database.');
+             return;
+        }
+    } catch (error) {
+        console.error('Error fetching or processing questions:', error);
+        alert('Could not start game. Failed to load questions.');
+    }
+}
+
+function updateGameUI(gameData) {
+    if (!gameData || !gameData.players) return;
+
+    player1ScoreDisplay.textContent = gameData.players[1]?.score || 0;
+    player2ScoreDisplay.textContent = gameData.players[2]?.score || 0;
+    currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
+
+    gameOverSection.classList.add('hidden');
+    questionArea.classList.remove('hidden');
+    optionsArea.classList.remove('hidden');
+    turnIndicator.classList.remove('hidden');
+    
+    if (gameData.gameState === 'gameOver') {
+        displayGameOver(gameData);
+        return;
+    }
+    
+    const turnState = gameData.turnState;
+    turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
+    const questionIndex = gameData.currentQuestionIndex;
+    
+    if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
+        const currentQ = gameData.shuffledQuestions[questionIndex];
+        questionText.textContent = currentQ.questionText;
+
+        optionButtons.forEach((button, index) => {
+            button.textContent = currentQ.options[index];
+            button.disabled = false;
+            button.className = 'option-btn';
+        });
+
+        if (turnState.answerRevealed) {
+            optionButtons.forEach(button => {
+                button.disabled = true;
+                if (button.textContent === turnState.correctAnswer) {
+                    button.classList.add('correct-option');
+                }
+                if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) {
+                    button.classList.add('incorrect-choice');
+                }
+            });
+            feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${turnState.correctAnswer}`;
+            feedbackMessage.className = (turnState.chosenAnswer === turnState.correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
+            
+            if (currentPlayerId === hostPlayerId) {
+                nextQuestionButton.classList.remove('hidden');
+                nextQuestionButton.focus();
+            } else {
+                nextQuestionButton.classList.add('hidden');
+            }
+        } else {
+            optionButtons.forEach(button => {
+                button.disabled = (currentPlayerId !== turnState.player);
+            });
+            feedbackMessage.textContent = "";
+            nextQuestionButton.classList.add('hidden');
+        }
+    }
+}
+
+
+async function handleOptionClick(event) {
+    const gameRef = firebase.database.ref(db, 'games/' + currentRoomCode);
+    const snapshot = await firebase.database.get(gameRef);
+    const gameData = snapshot.val();
+
+    if (!gameData || currentPlayerId !== gameData.turnState.player || gameData.turnState.answerRevealed) return;
+
+    const userAnswer = event.target.textContent;
+    const correctAnswer = gameData.shuffledQuestions[gameData.currentQuestionIndex].correctAnswer;
+    let newScore = gameData.players[currentPlayerId].score;
+
+    if (userAnswer === correctAnswer) {
+        newScore++;
+        if (correctSound) correctSound.play();
+    } else {
+        if (incorrectSound) incorrectSound.play();
+    }
+
+    const updates = {};
+    updates[`/players/${currentPlayerId}/score`] = newScore;
+    updates['/turnState/answerRevealed'] = true;
+    updates['/turnState/chosenAnswer'] = userAnswer;
+    updates['/turnState/correctAnswer'] = correctAnswer;
+
+    await firebase.database.update(gameRef, updates);
+}
+
+async function nextQuestion() {
+    if (currentPlayerId !== hostPlayerId) return;
+
+    const gameRef = firebase.database.ref(db, 'games/' + currentRoomCode);
+    const snapshot = await firebase.database.get(gameRef);
+    const gameData = snapshot.val();
+
+    const nextQuestionIndex = gameData.currentQuestionIndex + 1;
+
+    if (nextQuestionIndex >= 10) { // End game after 10 questions
+        await firebase.database.update(gameRef, { gameState: 'gameOver' });
+        return;
+    }
+
+    const nextPlayer = gameData.turnState.player === 1 ? 2 : 1;
+    const updates = {
+        currentQuestionIndex: nextQuestionIndex,
+        turnState: { player: nextPlayer, answerRevealed: false }
+    };
+    await firebase.database.update(gameRef, updates);
+}
+
+function displayGameOver(gameData) {
+    questionArea.classList.add('hidden');
+    optionsArea.classList.add('hidden');
+    turnIndicator.classList.add('hidden');
+    feedbackMessage.textContent = "";
+    nextQuestionButton.classList.add('hidden');
+    gameOverSection.classList.remove('hidden');
+
+    const p1Score = gameData.players[1].score;
+    const p2Score = gameData.players[2].score;
+    let winnerMessageText;
+
+    if (p1Score > p2Score) {
+        winnerMessageText = "Player 1 Wins!";
+    } else if (p2Score > p1Score) {
+        winnerMessageText = "Player 2 Wins!";
+    } else {
+        winnerMessageText = "It's a Tie!";
+    }
+
+    gameOverMessage.textContent = `Game Over! ${winnerMessageText}\n\nFinal Score:\nPlayer 1: ${p1Score}\nPlayer 2: ${p2Score}`;
+    
+    if (currentPlayerId !== hostPlayerId) {
+        restartButton.classList.add('hidden');
+        changeGenreButton.textContent = "Return to Home";
+    } else {
+        restartButton.classList.remove('hidden');
+        changeGenreButton.textContent = "New Game (Change Genre)";
+    }
+}
+
+
+// --- INITIALIZATION & EVENT LISTENERS ---
+function initializeApp() {
+    // This is the button that starts it all
+    warningContinueButton?.addEventListener('click', () => {
+        localStorage.setItem('triviaPeekWarningSeen', 'true');
+        warningScreen.classList.add('hidden');
+        homescreen.classList.remove('hidden');
+    });
+
+    createGameBtn?.addEventListener('click', createGame);
+    joinGameBtn?.addEventListener('click', joinGame);
+    optionButtons.forEach(button => button.addEventListener('click', handleOptionClick));
+    nextQuestionButton?.addEventListener('click', nextQuestion);
+    
+    restartButton?.addEventListener('click', async () => {
+        // For now, a simple restart by re-shuffling the existing questions
+        if (currentPlayerId !== hostPlayerId) return;
+        const gameRef = firebase.database.ref(db, 'games/' + currentRoomCode);
+        const snapshot = await firebase.database.get(gameRef);
+        if (snapshot.exists()) {
+            const gameData = snapshot.val();
+            let questionsForGenre = gameData.shuffledQuestions;
+            for (let i = questionsForGenre.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
+            }
+            const updates = {
+                shuffledQuestions: questionsForGenre,
+                currentQuestionIndex: 0,
+                'players/1/score': 0,
+                'players/2/score': 0,
+                turnState: { player: 1, answerRevealed: false },
+                gameState: 'inProgress'
+            };
+            await firebase.database.update(gameRef, updates);
+        }
+    });
+
+    changeGenreButton?.addEventListener('click', async () => {
+        if (currentRoomCode && currentPlayerId === hostPlayerId) {
+            // This is the line with the corrected 'ref' call
+            await firebase.database.remove(firebase.database.ref(db, 'games/' + currentRoomCode));
+        }
+        window.location.reload();
+    });
+
+    // Check if the warning has been seen before to decide the initial screen
+    if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
+        warningScreen.classList.add('hidden');
+        homescreen.classList.remove('hidden');
+    } else {
+        warningScreen.classList.remove('hidden');
+    }
+}
+
+// Start the entire application logic
+initializeApp();
