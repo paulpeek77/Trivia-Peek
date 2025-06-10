@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Peek</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
+
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <div id="app-container" class="hidden">
+        <header>
+            <h1>Trivia Peek</h1>
+            <div id="game-info">
+                <span id="current-genre-display">Genre: N/A</span>
+                <div class="player-score" id="player1-score-container">
+                    P1: <span id="player1-score">0</span>
+                </div>
+                <div class="player-score" id="player2-score-container">
+                    P2: <span id="player2-score">0</span>
+                </div>
+            </div>
+        </header>
+
+        <main id="game-container" class="hidden">
+            <div id="turn-indicator">Player 1's Turn</div>
+            <div id="question-area">
+                <p id="question-text">Loading question...</p>
+            </div>
+            <div id="options-area">
+                <button class="option-btn">Option A</button>
+                <button class="option-btn">Option B</button>
+                <button class="option-btn">Option C</button>
+                <button class="option-btn">Option D</button>
+            </div>
+            <div id="feedback-message"></div>
+            <button id="next-question-button" class="hidden">Next Question</button>
+
+            <div id="game-over-section" class="hidden">
+                <h2 id="game-over-message">Game Over!</h2>
+                <button id="restart-button">Play Same Genre Again</button>
+                <button id="change-genre-button">Choose New Genre</button>
+            </div>
+        </main>
+
+        <section id="genre-selection-screen" class="hidden">
+            </section>
+    </div>
+
+    <div id="homescreen" class="hidden">
+        <div class="menu-box">
+            <img src="icons/Trivia-Peek-Logo.png" alt="Trivia Peek Logo" class="logo">
+            <button id="create-game-btn" class="menu-btn">Create Game</button>
+            <div class="join-game-section">
+                <input type="text" id="room-code-input" placeholder="Enter Room Code">
+                <button id="join-game-btn" class="menu-btn">Join Game</button>
+            </div>
+            <p id="error-message"></p>
+        </div>
+    </div>
+
+    <div id="lobby-screen" class="hidden">
+        <h2>Lobby</h2>
+        <p>Share this room code with your friend:</p>
+        <div id="room-code-display">----</div>
+        <p>Waiting for Player 2 to join...</p>
+    </div>
+
+    <div id="warning-screen">
+        <div class="warning-box">
+            <h2>Warning!</h2>
+            <p>This game may contain questions with adult themes, movie spoilers, and crude humor. Proceed with caution and a sense of humor.</p>
+            <button id="warning-continue-button">Proceed If You Dare</button>
+        </div>
+    </div>
+
+    <audio id="correct-sound" src="correct.mp3"></audio>
+    <audio id="incorrect-sound" src="incorrect.mp3"></audio>
+</body>
+</html>
