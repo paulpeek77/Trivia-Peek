@@ -13,7 +13,6 @@ body {
     background-color: var(--primary-color);
     color: var(--text-color);
     margin: 0;
-    /* Removed padding to allow full-screen overlay */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -28,17 +27,12 @@ body {
     display: none !important;
 }
 
-/* Styles for the main content boxes */
+/* Styles for the main content containers - BOX REMOVED */
 #app-container, #homescreen, #lobby-screen {
-    background-color: rgba(26, 26, 29, 0.9);
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     width: 100%;
     max-width: 600px;
     text-align: center;
-    border: 2px solid var(--secondary-color);
-    margin: 20px; /* Added margin for spacing */
+    margin: 20px auto; /* Keeps content centered without a visible box */
 }
 
 /* --- Styles for the Warning Screen Overlay --- */
@@ -97,6 +91,7 @@ h1, h2 {
     width: 100%;
     margin-top: 10px;
     transition: background-color 0.3s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); /* Added shadow to buttons for pop */
 }
 
 .menu-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover, #warning-continue-button:hover, .genre-btn:hover {
@@ -114,6 +109,7 @@ h1, h2 {
     font-size: 1.2em;
     text-align: center;
     text-transform: uppercase;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5); /* Added inset shadow for depth */
 }
 
 #options-area {
@@ -127,6 +123,7 @@ h1, h2 {
     margin-top: 20px;
     font-size: 1.2em;
     font-weight: bold;
+    text-shadow: 1px 1px 3px #000; /* Added shadow for readability */
 }
 
 .correct { color: var(--correct-color); }
