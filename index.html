@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <base href="https://paulpeek77.github.io/Trivia-Peek/">
 
     <title>Trivia Peek</title>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
-    
+
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -46,12 +46,17 @@
             display: none !important;
         }
 
-        /* Styles for the main content containers - BOX REMOVED */
+        /* Styles for the main content containers */
         #app-container, #homescreen, #lobby-screen {
-            width: 100%;
+            width: 90%; /* Adjusted width for better spacing */
             max-width: 600px;
             text-align: center;
-            margin: 20px auto; /* Keeps content centered without a visible box */
+            margin: 20px auto;
+            padding: 20px; /* Added padding back for visual structure if needed */
+            background-color: rgba(26, 26, 29, 0.9); /* Added background back for potential contrast with icons */
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--secondary-color);
         }
 
         /* --- Styles for the Warning Screen Overlay --- */
@@ -69,9 +74,8 @@
             padding: 20px;
         }
 
-        /* Warning Box styling removed for open-page interface */
         .warning-box {
-            width: 100%;
+            width: 90%; /* Balanced width for the warning box */
             max-width: 500px;
             text-align: center;
         }
@@ -81,22 +85,28 @@
             font-size: 4em;
             color: #c3073f;
             text-shadow: 2px 2px 4px #000;
-            margin-bottom: 0;
+            margin-bottom: 10px; /* Added some margin below the title */
         }
 
         h1, h2 {
             color: var(--accent-color);
-            text-shadow: 1px 1px 3px #000; /* Added shadow for readability on open background */
+            text-shadow: 1px 1px 3px #000;
         }
-        
+
         p {
-            text-shadow: 1px 1px 3px #000; /* Added shadow for readability */
+            font-size: 1.1em; /* Slightly increased paragraph font size */
+            line-height: 1.6; /* Improved line height for readability */
+            text-shadow: 1px 1px 3px #000;
+            margin-bottom: 15px; /* Added margin below paragraphs */
         }
 
         .menu-box .logo {
             max-width: 80%;
             height: auto;
             margin-bottom: 20px;
+            /* Attempt to blend black surround with primary background */
+            background-color: var(--primary-color);
+            border-radius: 5px; /* Soften edges if the logo has them */
         }
 
         .menu-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, #warning-continue-button, .genre-btn {
@@ -110,7 +120,7 @@
             width: 100%;
             margin-top: 10px;
             transition: background-color 0.3s;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); /* Added shadow to buttons for pop */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
 
         .menu-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover, #warning-continue-button:hover, .genre-btn:hover {
@@ -128,7 +138,7 @@
             font-size: 1.2em;
             text-align: center;
             text-transform: uppercase;
-            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5); /* Added inset shadow for depth */
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
 
         #options-area {
@@ -142,7 +152,7 @@
             margin-top: 20px;
             font-size: 1.2em;
             font-weight: bold;
-            text-shadow: 1px 1px 3px #000; /* Added shadow for readability */
+            text-shadow: 1px 1px 3px #000;
         }
 
         .correct { color: var(--correct-color); }
@@ -233,7 +243,8 @@
     <div id="warning-screen">
         <div class="warning-box">
             <h2>Warning!</h2>
-            <p>This game may contain questions with adult themes, movie spoilers, and crude humor. Proceed with caution and a sense of humor.</p>
+            <p style="font-weight: bold; font-style: italic;">"This game may contain questions with adult themes, movie spoilers, and crude humor."</p>
+            <p style="font-weight: bold; font-style: italic;">"Proceed with caution and a twisted sense of humor."</p>
             <button id="warning-continue-button">Proceed If You Dare</button>
         </div>
     </div>
