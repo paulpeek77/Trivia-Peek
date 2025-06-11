@@ -42,7 +42,7 @@
             display: none !important;
         }
 
-        /* Re-instated the box style for the main game screens per your request */
+        /* Box style for the main game screens */
         #app-container, #homescreen, #lobby-screen {
             background-color: rgba(26, 26, 29, 0.9);
             padding: 20px;
@@ -62,27 +62,25 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: var(--primary-color); /* Solid background as per screenshot */
+            background-color: var(--primary-color);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            padding: 20px;
         }
 
         .warning-box {
-            width: 100%;
+            width: 90%; 
             max-width: 500px;
             text-align: center;
         }
 
-        /* Warning screen H2 style updated to match screenshot */
         #warning-screen h2 {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Standard font */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 3.5em;
             font-weight: bold;
             color: var(--accent-color);
-            text-shadow: none; /* Removed special shadow */
+            text-shadow: none;
             margin-bottom: 25px;
         }
         
@@ -90,60 +88,13 @@
             font-size: 1.1em;
             line-height: 1.6;
             margin-bottom: 15px;
-            color: var(--text-color); /* Ensuring text is visible */
+            color: var(--text-color);
         }
         
         #warning-screen .continue-text {
             font-style: italic;
             font-size: 1em;
             margin-top: 30px;
-        }
-
-        h1, h2 {
-            color: var(--accent-color);
-        }
-        
-        p {
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-        }
-
-        .menu-box .logo {
-            max-width: 80%;
-            height: auto;
-            margin-bottom: 20px;
-            /* Removed extra styling as requested */
-        }
-
-        .menu-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, #warning-continue-button, .genre-btn {
-            background-color: var(--accent-color);
-            color: var(--text-color);
-            border: none;
-            padding: 15px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.1em;
-            width: 100%;
-            margin-top: 10px;
-            transition: background-color 0.3s;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-        }
-
-        .menu-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover, #warning-continue-button:hover, .genre-btn:hover {
-            background-color: var(--light-accent-color);
-        }
-
-        #room-code-input {
-            width: calc(100% - 24px);
-            padding: 12px;
-            margin-top: 20px;
-            border-radius: 8px;
-            border: 1px solid var(--secondary-color);
-            background-color: #333;
-            color: var(--text-color);
-            font-size: 1.2em;
-            text-align: center;
-            text-transform: uppercase;
-            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
     </style>
 
