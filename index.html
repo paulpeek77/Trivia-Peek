@@ -55,6 +55,15 @@
         }
         #warning-screen p { font-size: 1.1em; line-height: 1.6; margin-bottom: 15px; color: var(--text-color); }
         #warning-screen .continue-text { font-style: italic; font-size: 1em; margin-top: 30px; }
+        #room-code-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            letter-spacing: 10px;
+            padding: 10px;
+            border: 2px dashed var(--accent-color);
+            margin: 20px auto;
+            background-color: var(--primary-color);
+        }
         .menu-box .logo { max-width: 80%; height: auto; margin-bottom: 20px; }
         .menu-btn, #warning-continue-button {
             background-color: var(--accent-color); color: var(--text-color); border: none;
@@ -87,6 +96,13 @@
             </div>
             <p id="error-message"></p>
         </div>
+    </div>
+
+    <div id="lobby-screen" class="hidden">
+        <h2>Lobby</h2>
+        <p>Share this room code with your friend:</p>
+        <div id="room-code-display">----</div>
+        <p>Waiting for Player 2 to join...</p>
     </div>
 
     <div id="warning-screen">
@@ -123,10 +139,64 @@
         const roomCodeInput = document.getElementById('room-code-input');
         const joinGameBtn = document.getElementById('join-game-btn');
         const errorMessage = document.getElementById('error-message');
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const roomCodeDisplay = document.getElementById('room-code-display');
 
-        // --- All other game functions would go here, but are omitted for this example ---
-        // For now, we just need the warning screen logic to work.
+        // --- GAME STATE VARIABLES ---
+        let currentRoomCode = null;
+        let currentPlayerId = null;
+        let hostPlayerId = null;
 
+        // --- CORE FUNCTIONS ---
+        function generateRoomCode() {
+            return Math.random().toString(36).substring(2, 6).toUpperCase();
+        }
+
+        async function createGame() {
+            homescreen.classList.add('hidden');
+            lobbyScreen.classList.remove('hidden');
+            try {
+                currentRoomCode = generateRoomCode();
+                currentPlayerId = 1;
+                hostPlayerId = 1;
+
+                const initialGameState = {
+                    gameState: 'lobby',
+                    players: { 1: { connected: true, score: 0 }, 2: { connected: false, score: 0 } },
+                    hostPlayerId: 1
+                };
+                await db.ref('games/' + currentRoomCode).set(initialGameState);
+                listenToGameChanges(currentRoomCode);
+            } catch (error) {
+                console.error("Error creating game:", error);
+                errorMessage.textContent = "Could not create game. Check connection.";
+            }
+        }
+
+        function listenToGameChanges(roomCode) {
+            const gameRef = db.ref('games/' + roomCode);
+            gameRef.on('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert("Game room has closed.");
+                    window.location.reload();
+                    return;
+                }
+                const gameData = snapshot.val();
+                // Hide all major screens first
+                homescreen.classList.add('hidden');
+                lobbyScreen.classList.add('hidden');
+
+                // Show the correct screen based on gameState
+                switch (gameData.gameState) {
+                    case 'lobby':
+                        lobbyScreen.classList.remove('hidden');
+                        roomCodeDisplay.textContent = roomCode;
+                        break;
+                    // Other game states (selectingGenre, inProgress, etc.) will be added here later
+                }
+            });
+        }
+        
         // --- INITIALIZATION & EVENT LISTENERS ---
         function initializeApp() {
             warningContinueButton?.addEventListener('click', () => {
@@ -135,12 +205,11 @@
                 homescreen.classList.remove('hidden');
             });
 
-            createGameBtn?.addEventListener('click', () => {
-                errorMessage.textContent = "The 'Create Game' function is working!";
-            });
+            // Replaced placeholder with the real function call
+            createGameBtn?.addEventListener('click', createGame); 
 
             joinGameBtn?.addEventListener('click', () => {
-                 errorMessage.textContent = "The 'Join Game' function is working!";
+                 errorMessage.textContent = "The 'Join Game' function is the next step!";
             });
 
             if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
