@@ -43,6 +43,16 @@ h1, h2 {
     color: var(--accent-color);
 }
 
+/* --- Style for the Pimptabulous Warning Screen --- */
+#warning-screen h2 {
+    font-family: 'Creepster', cursive;
+    font-size: 4em;
+    color: #c3073f;
+    text-shadow: 2px 2px 4px #000;
+    margin-bottom: 0;
+}
+
+
 .menu-box .logo {
     max-width: 80%;
     height: auto;
