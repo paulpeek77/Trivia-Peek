@@ -3,15 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+    
     <base href="https://paulpeek77.github.io/Trivia-Peek/">
 
     <title>Trivia Peek</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
-
+    
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -46,17 +42,17 @@
             display: none !important;
         }
 
-        /* Styles for the main content containers */
+        /* Re-instated the box style for the main game screens per your request */
         #app-container, #homescreen, #lobby-screen {
-            width: 90%; /* Adjusted width for better spacing */
-            max-width: 600px;
-            text-align: center;
-            margin: 20px auto;
-            padding: 20px; /* Added padding back for visual structure if needed */
-            background-color: rgba(26, 26, 29, 0.9); /* Added background back for potential contrast with icons */
+            background-color: rgba(26, 26, 29, 0.9);
+            padding: 20px;
             border-radius: 15px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
             border: 2px solid var(--secondary-color);
+            margin: 20px auto;
         }
 
         /* --- Styles for the Warning Screen Overlay --- */
@@ -66,7 +62,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color: var(--primary-color); /* Solid background as per screenshot */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -75,38 +71,47 @@
         }
 
         .warning-box {
-            width: 90%; /* Balanced width for the warning box */
+            width: 100%;
             max-width: 500px;
             text-align: center;
         }
 
+        /* Warning screen H2 style updated to match screenshot */
         #warning-screen h2 {
-            font-family: 'Creepster', cursive;
-            font-size: 4em;
-            color: #c3073f;
-            text-shadow: 2px 2px 4px #000;
-            margin-bottom: 10px; /* Added some margin below the title */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Standard font */
+            font-size: 3.5em;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-shadow: none; /* Removed special shadow */
+            margin-bottom: 25px;
+        }
+        
+        #warning-screen p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            color: var(--text-color); /* Ensuring text is visible */
+        }
+        
+        #warning-screen .continue-text {
+            font-style: italic;
+            font-size: 1em;
+            margin-top: 30px;
         }
 
         h1, h2 {
             color: var(--accent-color);
-            text-shadow: 1px 1px 3px #000;
         }
-
+        
         p {
-            font-size: 1.1em; /* Slightly increased paragraph font size */
-            line-height: 1.6; /* Improved line height for readability */
-            text-shadow: 1px 1px 3px #000;
-            margin-bottom: 15px; /* Added margin below paragraphs */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
         }
 
         .menu-box .logo {
             max-width: 80%;
             height: auto;
             margin-bottom: 20px;
-            /* Attempt to blend black surround with primary background */
-            background-color: var(--primary-color);
-            border-radius: 5px; /* Soften edges if the logo has them */
+            /* Removed extra styling as requested */
         }
 
         .menu-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, #warning-continue-button, .genre-btn {
@@ -140,40 +145,6 @@
             text-transform: uppercase;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
-
-        #options-area {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .feedback-message {
-            margin-top: 20px;
-            font-size: 1.2em;
-            font-weight: bold;
-            text-shadow: 1px 1px 3px #000;
-        }
-
-        .correct { color: var(--correct-color); }
-        .incorrect { color: var(--incorrect-color); }
-
-        .correct-option {
-            background-color: var(--correct-color) !important;
-            color: white !important;
-        }
-
-        .incorrect-choice {
-            background-color: var(--incorrect-color) !important;
-            color: white !important;
-        }
-
-        #genre-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-top: 20px;
-        }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -183,43 +154,7 @@
 </head>
 <body>
     <div id="app-container" class="hidden">
-        <header>
-            <h1>Trivia Peek</h1>
-            <div id="game-info">
-                <span id="current-genre-display">Genre: N/A</span>
-                <div class="player-score" id="player1-score-container">
-                    P1: <span id="player1-score">0</span>
-                </div>
-                <div class="player-score" id="player2-score-container">
-                    P2: <span id="player2-score">0</span>
-                </div>
-            </div>
-        </header>
-
-        <main id="game-container" class="hidden">
-            <div id="turn-indicator">Player 1's Turn</div>
-            <div id="question-area">
-                <p id="question-text">Loading question...</p>
-            </div>
-            <div id="options-area">
-                <button class="option-btn">Option A</button>
-                <button class="option-btn">Option B</button>
-                <button class="option-btn">Option C</button>
-                <button class="option-btn">Option D</button>
-            </div>
-            <div id="feedback-message"></div>
-            <button id="next-question-button" class="hidden">Next Question</button>
-
-            <div id="game-over-section" class="hidden">
-                <h2 id="game-over-message">Game Over!</h2>
-                <button id="restart-button">Play Same Genre Again</button>
-                <button id="change-genre-button">Choose New Genre</button>
-            </div>
-        </main>
-
-        <section id="genre-selection-screen" class="hidden">
-            </section>
-    </div>
+        </div>
 
     <div id="homescreen" class="hidden">
         <div class="menu-box">
@@ -234,18 +169,14 @@
     </div>
 
     <div id="lobby-screen" class="hidden">
-        <h2>Lobby</h2>
-        <p>Share this room code with your friend:</p>
-        <div id="room-code-display">----</div>
-        <p>Waiting for Player 2 to join...</p>
-    </div>
+        </div>
 
     <div id="warning-screen">
         <div class="warning-box">
-            <h2>Warning!</h2>
-            <p style="font-weight: bold; font-style: italic;">"This game may contain questions with adult themes, movie spoilers, and crude humor."</p>
-            <p style="font-weight: bold; font-style: italic;">"Proceed with caution and a twisted sense of humor."</p>
-            <button id="warning-continue-button">Proceed If You Dare</button>
+            <h2>WARNING</h2>
+            <p>The following movie trivia game is rated R with all questions and answers listed exactly as they are established in their respective film releases. Trivia Peek may not be suitable for children, the easily offended, or any lipstick-wearing felt monkeys wearing plaid.</p>
+            <p class="continue-text">Continue at your own risk.</p>
+            <button id="warning-continue-button">PROCEED IF YOU DARE!</button>
         </div>
     </div>
 
