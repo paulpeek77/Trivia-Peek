@@ -13,8 +13,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
     
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="icons/favicon.ico" sizes="any">
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
     <style>
         :root {
@@ -69,15 +69,11 @@
             padding: 20px;
         }
 
+        /* Warning Box styling removed for open-page interface */
         .warning-box {
-            background-color: var(--primary-color);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             width: 100%;
             max-width: 500px;
             text-align: center;
-            border: 2px solid var(--secondary-color);
         }
 
         #warning-screen h2 {
@@ -90,6 +86,11 @@
 
         h1, h2 {
             color: var(--accent-color);
+            text-shadow: 1px 1px 3px #000; /* Added shadow for readability on open background */
+        }
+        
+        p {
+            text-shadow: 1px 1px 3px #000; /* Added shadow for readability */
         }
 
         .menu-box .logo {
@@ -212,7 +213,7 @@
 
     <div id="homescreen" class="hidden">
         <div class="menu-box">
-            <img src="icons/Trivia-Peek-Logo.png" alt="Trivia Peek Logo" class="logo">
+            <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
             <button id="create-game-btn" class="menu-btn">Create Game</button>
             <div class="join-game-section">
                 <input type="text" id="room-code-input" placeholder="Enter Room Code">
