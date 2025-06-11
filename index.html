@@ -15,6 +15,8 @@
             --accent-color: #c3073f;
             --light-accent-color: #950740;
             --text-color: #f5f5f5;
+            --correct-color: #28a745;
+            --incorrect-color: #dc3545;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -56,23 +58,21 @@
         #warning-screen p { font-size: 1.1em; line-height: 1.6; margin-bottom: 15px; color: var(--text-color); }
         #warning-screen .continue-text { font-style: italic; font-size: 1em; margin-top: 30px; }
         #room-code-display {
-            font-size: 2.5em;
-            font-weight: bold;
-            letter-spacing: 10px;
-            padding: 10px;
-            border: 2px dashed var(--accent-color);
-            margin: 20px auto;
-            background-color: var(--primary-color);
+            font-size: 2.5em; font-weight: bold; letter-spacing: 10px;
+            padding: 10px; border: 2px dashed var(--accent-color);
+            margin: 20px auto; background-color: var(--primary-color);
         }
         .menu-box .logo { max-width: 80%; height: auto; margin-bottom: 20px; }
-        .menu-btn, #warning-continue-button, .genre-btn {
+        .menu-btn, #warning-continue-button, .genre-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button {
             background-color: var(--accent-color); color: var(--text-color); border: none;
             padding: 15px 20px; border-radius: 8px; cursor: pointer;
             font-size: 1.1em; width: 100%; margin-top: 10px;
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
-        .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover { background-color: var(--light-accent-color); }
+        .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover {
+             background-color: var(--light-accent-color);
+        }
         #room-code-input {
             width: calc(100% - 24px); padding: 12px; margin-top: 20px;
             border-radius: 8px; border: 1px solid var(--secondary-color);
@@ -81,11 +81,18 @@
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
         #genre-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-top: 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px; margin-top: 20px;
         }
+        #options-area {
+            display: grid; grid-template-columns: 1fr;
+            gap: 10px; margin-top: 20px;
+        }
+        .feedback-message { margin-top: 20px; font-size: 1.2em; font-weight: bold; }
+        .correct { color: var(--correct-color); }
+        .incorrect { color: var(--incorrect-color); }
+        .correct-option { background-color: var(--correct-color) !important; color: white !important; }
+        .incorrect-choice { background-color: var(--incorrect-color) !important; color: white !important; }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -93,9 +100,34 @@
 </head>
 <body>
     <div id="app-container" class="hidden">
+        <header>
+            <h1>Trivia Peek</h1>
+            <div id="game-info" style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="current-genre-display">Genre: N/A</span>
+                <div class="player-score" id="player1-score-container">P1: <span id="player1-score">0</span></div>
+                <div class="player-score" id="player2-score-container">P2: <span id="player2-score">0</span></div>
+            </div>
+        </header>
+        <main id="game-container" class="hidden">
+            <div id="turn-indicator">Player 1's Turn</div>
+            <div id="question-area"><p id="question-text">Loading question...</p></div>
+            <div id="options-area">
+                <button class="option-btn">Option A</button>
+                <button class="option-btn">Option B</button>
+                <button class="option-btn">Option C</button>
+                <button class="option-btn">Option D</button>
+            </div>
+            <div id="feedback-message"></div>
+            <button id="next-question-button" class="hidden">Next Question</button>
+            <div id="game-over-section" class="hidden">
+                <h2 id="game-over-message">Game Over!</h2>
+                <button id="restart-button">Play Same Genre Again</button>
+                <button id="change-genre-button">Choose New Genre</button>
+            </div>
+        </main>
         <section id="genre-selection-screen" class="hidden">
             </section>
-        </div>
+    </div>
 
     <div id="homescreen" class="hidden">
         <div class="menu-box">
@@ -154,6 +186,20 @@
         const roomCodeDisplay = document.getElementById('room-code-display');
         const appContainer = document.getElementById('app-container');
         const genreSelectionScreen = document.getElementById('genre-selection-screen');
+        const gameContainer = document.getElementById('game-container');
+        const currentGenreDisplay = document.getElementById('current-genre-display');
+        const player1ScoreDisplay = document.getElementById('player1-score');
+        const player2ScoreDisplay = document.getElementById('player2-score');
+        const turnIndicator = document.getElementById('turn-indicator');
+        const questionText = document.getElementById('question-text');
+        const optionsArea = document.getElementById('options-area');
+        const optionButtons = Array.from(optionsArea.getElementsByClassName('option-btn'));
+        const feedbackMessage = document.getElementById('feedback-message');
+        const nextQuestionButton = document.getElementById('next-question-button');
+        const gameOverSection = document.getElementById('game-over-section');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const restartButton = document.getElementById('restart-button');
+        const changeGenreButton = document.getElementById('change-genre-button');
 
         // --- GAME STATE VARIABLES ---
         let currentRoomCode = null;
@@ -172,7 +218,6 @@
                 currentRoomCode = generateRoomCode();
                 currentPlayerId = 1;
                 hostPlayerId = 1;
-
                 const initialGameState = {
                     gameState: 'lobby',
                     players: { 1: { connected: true, score: 0 }, 2: { connected: false, score: 0 } },
@@ -190,7 +235,6 @@
             const code = roomCodeInput.value.trim().toUpperCase();
             if (!code) { errorMessage.textContent = 'Please enter a room code.'; return; }
             errorMessage.textContent = '';
-
             try {
                 const gameRef = db.ref('games/' + code);
                 const snapshot = await gameRef.once('value');
@@ -225,10 +269,11 @@
                 }
                 const gameData = snapshot.val();
                 
-                // Hide all major screens first
                 homescreen.classList.add('hidden');
                 lobbyScreen.classList.add('hidden');
                 appContainer.classList.add('hidden');
+                genreSelectionScreen.classList.add('hidden');
+                gameContainer.classList.add('hidden');
 
                 switch (gameData.gameState) {
                     case 'lobby':
@@ -240,7 +285,12 @@
                         genreSelectionScreen.classList.remove('hidden');
                         buildGenreSelectionUI(gameData);
                         break;
-                    // Other game states will be added here
+                    case 'inProgress':
+                    case 'gameOver':
+                        appContainer.classList.remove('hidden');
+                        gameContainer.classList.remove('hidden');
+                        updateGameUI(gameData);
+                        break;
                 }
             });
         }
@@ -255,13 +305,68 @@
                     <button class="genre-btn" data-genre="drama">Drama</button>
                     <button class="genre-btn" data-genre="suspense">Suspense</button>
                     <button class="genre-btn" data-genre="comedy">Comedy</button>
-                    <button class="genre-btn" data-genre="family">Kids & Family</button>
+                    <button class="genre-btn" data-genre="family">Family</button>
                 </div>`;
 
             if (currentPlayerId === gameData.hostPlayerId) {
                 genreSelectionScreen.querySelectorAll('.genre-btn').forEach(button => {
-                    // This will call a 'handleGenreSelection' function we will build next
-                    // button.addEventListener('click', handleGenreSelection); 
+                    button.addEventListener('click', handleGenreSelection); 
+                });
+            }
+        }
+
+        async function handleGenreSelection(event) {
+            if (currentPlayerId !== hostPlayerId) return;
+            const selectedGenre = event.target.dataset.genre;
+
+            try {
+                const questionsRef = db.ref('questions/' + selectedGenre);
+                const snapshot = await questionsRef.once('value');
+                if (!snapshot.exists()) { throw new Error(`Could not find questions for "${selectedGenre}".`); }
+                let questionsForGenre = snapshot.val();
+
+                for (let i = questionsForGenre.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
+                }
+
+                const updates = {
+                    genre: selectedGenre,
+                    shuffledQuestions: questionsForGenre.slice(0, 10), // Limit to 10 questions per game
+                    currentQuestionIndex: 0,
+                    'players/1/score': 0,
+                    'players/2/score': 0,
+                    turnState: { player: 1, answerRevealed: false },
+                    gameState: 'inProgress'
+                };
+                await db.ref('games/' + currentRoomCode).update(updates);
+            } catch (error) {
+                console.error('Error starting game:', error);
+                alert('Could not start game. Failed to load questions.');
+            }
+        }
+
+        function updateGameUI(gameData) {
+            if (!gameData || !gameData.players) return;
+
+            player1ScoreDisplay.textContent = gameData.players[1]?.score || 0;
+            player2ScoreDisplay.textContent = gameData.players[2]?.score || 0;
+            currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
+
+            gameOverSection.classList.add('hidden');
+
+            const turnState = gameData.turnState;
+            turnIndicator.textContent = `Player ${turnState?.player}'s Turn`;
+
+            const questionIndex = gameData.currentQuestionIndex;
+            if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
+                const currentQ = gameData.shuffledQuestions[questionIndex];
+                questionText.textContent = currentQ.questionText;
+
+                optionButtons.forEach((button, index) => {
+                    button.textContent = currentQ.options[index];
+                    button.disabled = (currentPlayerId !== turnState.player);
+                    button.className = 'option-btn';
                 });
             }
         }
