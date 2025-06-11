@@ -65,14 +65,14 @@
             background-color: var(--primary-color);
         }
         .menu-box .logo { max-width: 80%; height: auto; margin-bottom: 20px; }
-        .menu-btn, #warning-continue-button {
+        .menu-btn, #warning-continue-button, .genre-btn {
             background-color: var(--accent-color); color: var(--text-color); border: none;
             padding: 15px 20px; border-radius: 8px; cursor: pointer;
             font-size: 1.1em; width: 100%; margin-top: 10px;
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
-        .menu-btn:hover, #warning-continue-button:hover { background-color: var(--light-accent-color); }
+        .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover { background-color: var(--light-accent-color); }
         #room-code-input {
             width: calc(100% - 24px); padding: 12px; margin-top: 20px;
             border-radius: 8px; border: 1px solid var(--secondary-color);
@@ -80,12 +80,23 @@
             font-size: 1.2em; text-align: center; text-transform: uppercase;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
+        #genre-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
+    <div id="app-container" class="hidden">
+        <section id="genre-selection-screen" class="hidden">
+            </section>
+        </div>
+
     <div id="homescreen" class="hidden">
         <div class="menu-box">
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
@@ -141,6 +152,8 @@
         const errorMessage = document.getElementById('error-message');
         const lobbyScreen = document.getElementById('lobby-screen');
         const roomCodeDisplay = document.getElementById('room-code-display');
+        const appContainer = document.getElementById('app-container');
+        const genreSelectionScreen = document.getElementById('genre-selection-screen');
 
         // --- GAME STATE VARIABLES ---
         let currentRoomCode = null;
@@ -173,6 +186,35 @@
             }
         }
 
+        async function joinGame() {
+            const code = roomCodeInput.value.trim().toUpperCase();
+            if (!code) { errorMessage.textContent = 'Please enter a room code.'; return; }
+            errorMessage.textContent = '';
+
+            try {
+                const gameRef = db.ref('games/' + code);
+                const snapshot = await gameRef.once('value');
+                if (snapshot.exists()) {
+                    const gameData = snapshot.val();
+                    if (gameData.players[2] && gameData.players[2].connected) {
+                        errorMessage.textContent = 'This room is already full.';
+                    } else {
+                        currentRoomCode = code;
+                        currentPlayerId = 2;
+                        hostPlayerId = gameData.hostPlayerId;
+                        const updates = { '/players/2/connected': true, '/gameState': 'selectingGenre' };
+                        await gameRef.update(updates);
+                        listenToGameChanges(currentRoomCode);
+                    }
+                } else {
+                    errorMessage.textContent = 'Room code not found.';
+                }
+            } catch (error) {
+                console.error("Error joining game:", error);
+                errorMessage.textContent = "Could not join game. Check code or connection.";
+            }
+        }
+
         function listenToGameChanges(roomCode) {
             const gameRef = db.ref('games/' + roomCode);
             gameRef.on('value', (snapshot) => {
@@ -182,19 +224,46 @@
                     return;
                 }
                 const gameData = snapshot.val();
+                
                 // Hide all major screens first
                 homescreen.classList.add('hidden');
                 lobbyScreen.classList.add('hidden');
+                appContainer.classList.add('hidden');
 
-                // Show the correct screen based on gameState
                 switch (gameData.gameState) {
                     case 'lobby':
                         lobbyScreen.classList.remove('hidden');
                         roomCodeDisplay.textContent = roomCode;
                         break;
-                    // Other game states (selectingGenre, inProgress, etc.) will be added here later
+                    case 'selectingGenre':
+                        appContainer.classList.remove('hidden');
+                        genreSelectionScreen.classList.remove('hidden');
+                        buildGenreSelectionUI(gameData);
+                        break;
+                    // Other game states will be added here
                 }
             });
+        }
+        
+        function buildGenreSelectionUI(gameData) {
+            genreSelectionScreen.innerHTML = `
+                <h1>Trivia Peek - Choose a Genre</h1>
+                <p>${currentPlayerId === gameData.hostPlayerId ? "You are the host. Please select a genre." : "Waiting for the host to select a genre..."}</p>
+                <div id="genre-buttons">
+                    <button class="genre-btn" data-genre="action">Action</button>
+                    <button class="genre-btn" data-genre="horror">Horror</button>
+                    <button class="genre-btn" data-genre="drama">Drama</button>
+                    <button class="genre-btn" data-genre="suspense">Suspense</button>
+                    <button class="genre-btn" data-genre="comedy">Comedy</button>
+                    <button class="genre-btn" data-genre="family">Kids & Family</button>
+                </div>`;
+
+            if (currentPlayerId === gameData.hostPlayerId) {
+                genreSelectionScreen.querySelectorAll('.genre-btn').forEach(button => {
+                    // This will call a 'handleGenreSelection' function we will build next
+                    // button.addEventListener('click', handleGenreSelection); 
+                });
+            }
         }
         
         // --- INITIALIZATION & EVENT LISTENERS ---
@@ -205,12 +274,8 @@
                 homescreen.classList.remove('hidden');
             });
 
-            // Replaced placeholder with the real function call
             createGameBtn?.addEventListener('click', createGame); 
-
-            joinGameBtn?.addEventListener('click', () => {
-                 errorMessage.textContent = "The 'Join Game' function is the next step!";
-            });
+            joinGameBtn?.addEventListener('click', joinGame);
 
             if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
                 warningScreen.classList.add('hidden');
