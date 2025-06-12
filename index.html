@@ -490,12 +490,20 @@
             joinGameBtn?.addEventListener('click', joinGame);
             optionButtons.forEach(button => button.addEventListener('click', handleOptionClick));
             nextQuestionButton.addEventListener('click', nextQuestion);
-            restartButton.addEventListener('click', () => {
-                handleGenreSelection({ target: { dataset: { genre: db.ref('games/' + currentRoomCode + '/genre').once('value').then(s => s.val()) } } });
+            
+            restartButton.addEventListener('click', async () => {
+                if (currentPlayerId !== hostPlayerId) return;
+                const gameRef = db.ref('games/' + currentRoomCode);
+                const snapshot = await gameRef.once('value');
+                const gameData = snapshot.val();
+                if (gameData && gameData.genre) {
+                    handleGenreSelection({ target: { dataset: { genre: gameData.genre } } });
+                }
             });
-            changeGenreButton.addEventListener('click', () => {
+            
+            changeGenreButton.addEventListener('click', async () => {
                 if (currentPlayerId === hostPlayerId) {
-                    db.ref('games/' + currentRoomCode).remove();
+                    await db.ref('games/' + currentRoomCode).remove();
                 }
                 window.location.reload();
             });
