@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Peek - Comprehensive Systems Check</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- CLASSIC SCRIPT LOADING METHOD -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .status-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; }
+        .pending { background-color: #f59e0b; }
+        .success { background-color: #22c55e; }
+        .error { background-color: #ef4444; }
+        .log-entry { border-left: 4px solid; }
+        .log-info { border-color: #3b82f6; }
+        .log-success { border-color: #22c55e; }
+        .log-error { border-color: #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 sm:p-6 lg:p-8">
+    <div class="max-w-4xl mx-auto bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+        <header class="bg-gray-700 p-6 border-b border-gray-600">
+            <h1 class="text-2xl font-bold text-white">Trivia Peek - Comprehensive Systems Check</h1>
+            <p class="text-gray-400 mt-1">An advanced diagnostic to verify HTML, Firebase, and the environment.</p>
+        </header>
+
+        <main class="p-6 space-y-6">
+            <!-- Hidden HTML elements for testing -->
+            <div id="test-elements" class="hidden">
+                <div id="warning-screen">
+                    <button id="warning-continue-button"></button>
+                </div>
+                <div id="homescreen"></div>
+            </div>
+
+            <!-- Control Section -->
+            <div>
+                <h2 class="text-xl font-semibold mb-3">1. Start Systems Check</h2>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <p class="text-gray-300 mb-4">Click the button to begin the full systems check.</p>
+                    <button id="runCheckBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center space-x-2">
+                        <span>Start Comprehensive Check</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Diagnostic Report Section -->
+            <div id="reportSection" class="hidden">
+                <h2 class="text-xl font-semibold mb-4">2. Systems Report</h2>
+                <div class="space-y-4">
+                    <div class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span>HTML Element Sanity</span>
+                        <div class="flex items-center space-x-2">
+                            <span id="domStatusText" class="text-gray-400 text-sm">Pending...</span>
+                            <div id="domStatus" class="status-dot pending"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span>Firebase Initialization</span>
+                        <div class="flex items-center space-x-2">
+                            <span id="firebaseStatusText" class="text-gray-400 text-sm">Pending...</span>
+                            <div id="firebaseStatus" class="status-dot pending"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span>Database Read Access</span>
+                        <div class="flex items-center space-x-2">
+                            <span id="readStatusText" class="text-gray-400 text-sm">Pending...</span>
+                            <div id="readStatus" class="status-dot pending"></div>
+                        </div>
+                    </div>
+                     <div class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span>Live Connection</span>
+                        <div class="flex items-center space-x-2">
+                            <span id="connectStatusText" class="text-gray-400 text-sm">Pending...</span>
+                            <div id="connectStatus" class="status-dot pending"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Log Stream -->
+            <div id="logSection" class="hidden">
+                <h2 class="text-xl font-semibold mb-4">3. Live Log Stream</h2>
+                <div id="logContainer" class="bg-gray-900 p-4 rounded-lg h-80 overflow-y-auto font-mono text-sm space-y-2"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // *** The 100% CORRECT Firebase Configuration for Trivia Peek ***
+        const firebaseConfig = {
+          "apiKey": "AIzaSyB3HPPOOs2ABwOpIV6m1seQQoGv43YJsqI",
+          "authDomain": "trivia-peek.firebaseapp.com",
+          "databaseURL": "https://trivia-peek-default-rtdb.firebaseio.com",
+          "projectId": "trivia-peek",
+          "storageBucket": "trivia-peek.firebasestorage.app",
+          "messagingSenderId": "260468478548",
+          "appId": "1:260468478548:web:d35f42555b46ad22d293c1",
+          "measurementId": "G-C672H0S2HD"
+        };
+        
+        const runCheckBtn = document.getElementById('runCheckBtn');
+        const reportSection = document.getElementById('reportSection');
+        const logSection = document.getElementById('logSection');
+        const logContainer = document.getElementById('logContainer');
+
+        const domStatus = document.getElementById('domStatus');
+        const domStatusText = document.getElementById('domStatusText');
+        const firebaseStatus = document.getElementById('firebaseStatus');
+        const firebaseStatusText = document.getElementById('firebaseStatusText');
+        const readStatus = document.getElementById('readStatus');
+        const readStatusText = document.getElementById('readStatusText');
+        const connectStatus = document.getElementById('connectStatus');
+        const connectStatusText = document.getElementById('connectStatusText');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry p-2 rounded-md bg-gray-800 log-${type}`;
+            entry.innerHTML = `<span class="font-bold text-gray-500 mr-2">[${new Date().toLocaleTimeString()}]</span><span>${message}</span>`;
+            if (!logContainer.firstChild || logContainer.firstChild.nodeName !== 'DIV') {
+                logContainer.innerHTML = '';
+            }
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(element, textElement, status, text) {
+            element.className = `status-dot ${status}`;
+            textElement.textContent = text;
+        }
+
+        // Add a global error handler to catch "Script error."
+        window.onerror = function(message, source, lineno, colno, error) {
+            log(`[GLOBAL CATCH] Unhandled Error: ${message}`, 'error');
+            if (error) {
+                log(`...Error object: ${error.stack}`, 'error');
+            }
+            // Returning true prevents the browser from firing its default error handler.
+            return true;
+        };
+
+        runCheckBtn.addEventListener('click', async () => {
+            try {
+                reportSection.classList.remove('hidden');
+                logSection.classList.remove('hidden');
+                logContainer.innerHTML = '';
+                log('Comprehensive systems check initiated.', 'info');
+
+                // 1. DOM Sanity Check
+                log('Step 1: Checking for essential HTML elements...', 'info');
+                const elementsToTest = ['warning-screen', 'warning-continue-button', 'homescreen'];
+                let allElementsFound = true;
+                for (const id of elementsToTest) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        log(`...found #${id}.`, 'success');
+                    } else {
+                        log(`...CRITICAL FAILURE: Cannot find #${id}! Check your main game's index.html for this ID.`, 'error');
+                        allElementsFound = false;
+                    }
+                }
+                updateStatus(domStatus, domStatusText, allElementsFound ? 'success' : 'error', allElementsFound ? 'OK' : 'Failed');
+                 if(!allElementsFound) {
+                    log('Aborting further tests due to critical HTML element failure.', 'error');
+                    return;
+                }
+
+                // 2. Firebase Initialization
+                let app, db;
+                log('Step 2: Initializing Firebase...', 'info');
+                try {
+                    app = firebase.initializeApp(firebaseConfig);
+                    db = firebase.database.getDatabase(app);
+                    updateStatus(firebaseStatus, firebaseStatusText, 'success', 'Initialized');
+                    log('...Firebase initialized successfully.', 'success');
+                } catch (error) {
+                    updateStatus(firebaseStatus, firebaseStatusText, 'error', 'Failed');
+                    log(`...CRITICAL FAILURE during initialization. Details: ${error.message}`, 'error');
+                    log('Aborting further tests.', 'error');
+                    return;
+                }
+
+                // 3. Firebase Read Test
+                log("Step 3: Attempting to read sample data ('questions/action/0')...", 'info');
+                try {
+                    const questionRef = firebase.database.ref(db, 'questions/action/0');
+                    const snapshot = await firebase.database.get(questionRef);
+                    if (snapshot.exists()) {
+                        updateStatus(readStatus, readStatusText, 'success', 'Read OK');
+                        log('...Read access confirmed. Successfully fetched sample question.', 'success');
+                    } else {
+                        updateStatus(readStatus, readStatusText, 'error', 'Not Found');
+                        log("...ERROR: Could not find data at path 'questions/action/0'. Check your Firebase data structure.", 'error');
+                    }
+                } catch (error) {
+                     updateStatus(readStatus, readStatusText, 'error', 'Read Failed');
+                     log(`...ERROR: Failed to read data. Check security rules. Details: ${error.message}`, 'error');
+                }
+
+                // 4. Firebase Live Connection Test
+                log("Step 4: Attempting live connection test (.info/connected)...", 'info');
+                try {
+                    await firebase.database.get(firebase.database.ref(db, '.info/connected'));
+                    updateStatus(connectStatus, connectStatusText, 'success', 'Connection OK');
+                    log('...SUCCESS! A live connection to the database was established.', 'success');
+                } catch (error) {
+                     updateStatus(connectStatus, connectStatusText, 'error', 'Failed');
+                     log(`...FAILURE: Live connection test failed. This strongly suggests an environmental issue (VPN, ad-blocker, network firewall) is blocking the connection. Details: ${error.message}`, 'error');
+                }
+                
+                log('Comprehensive systems check complete.', 'info');
+            } catch (e) {
+                // This catch block will handle any unexpected errors during the check process.
+                log(`An unexpected error occurred during the diagnostic check: ${e.message}`, 'error');
+                console.error("Diagnostic Check Error:", e);
+            }
+        });
+    </script>
+</body>
+</html>
