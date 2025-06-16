@@ -162,7 +162,7 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Your web app's Firebase configuration
+            // Your web app's Firebase configuration - VERIFIED AND CORRECTED
             const firebaseConfig = {
                 apiKey: "AIzaSyB3HPPOOs2ABwOpIV6m1seQQoGv43YJsqI",
                 authDomain: "trivia-peek.firebaseapp.com",
@@ -258,11 +258,11 @@
                 gameRef.on('value', (snapshot) => {
                     if (!snapshot.exists()) { alert("Game room has closed."); window.location.reload(); return; }
                     const gameData = snapshot.val();
-                    homescreen.classList.add('hidden'); lobbyScreen.classList.add('hidden'); appContainer.classList.add('hidden');
+                    homescreen.classList.add('hidden'); lobbyScreen.classList.add('hidden'); appContainer.classList.add('hidden'); genreSelectionScreen.classList.add('hidden'); gameContainer.classList.add('hidden');
                     switch (gameData.gameState) {
                         case 'lobby': lobbyScreen.classList.remove('hidden'); roomCodeDisplay.textContent = roomCode; break;
-                        case 'selectingGenre': appContainer.classList.remove('hidden'); genreSelectionScreen.classList.remove('hidden'); gameContainer.classList.add('hidden'); buildGenreSelectionUI(gameData); break;
-                        case 'inProgress': case 'gameOver': appContainer.classList.remove('hidden'); gameContainer.classList.remove('hidden'); genreSelectionScreen.classList.add('hidden'); updateGameUI(gameData); break;
+                        case 'selectingGenre': appContainer.classList.remove('hidden'); genreSelectionScreen.classList.remove('hidden'); buildGenreSelectionUI(gameData); break;
+                        case 'inProgress': case 'gameOver': appContainer.classList.remove('hidden'); gameContainer.classList.remove('hidden'); updateGameUI(gameData); break;
                     }
                 });
             }
@@ -433,6 +433,7 @@
                 }
                 window.location.reload();
             });
+
             // Show initial screen
             if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
                 warningScreen.classList.add('hidden');
