@@ -162,7 +162,6 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Your web app's Firebase configuration - VERIFIED AND CORRECTED
             const firebaseConfig = {
                 apiKey: "AIzaSyB3HPPOOs2ABwOpIV6m1seQQoGv43YJsqI",
                 authDomain: "trivia-peek.firebaseapp.com",
@@ -174,11 +173,9 @@
                 measurementId: "G-C672H0S2HD"
             };
 
-            // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             const db = firebase.database();
 
-            // --- DOM ELEMENTS ---
             const warningScreen = document.getElementById('warning-screen');
             const warningContinueButton = document.getElementById('warning-continue-button');
             const homescreen = document.getElementById('homescreen');
@@ -195,6 +192,7 @@
             const player1ScoreDisplay = document.getElementById('player1-score');
             const player2ScoreDisplay = document.getElementById('player2-score');
             const turnIndicator = document.getElementById('turn-indicator');
+            const questionArea = document.getElementById('question-area');
             const questionText = document.getElementById('question-text');
             const optionsArea = document.getElementById('options-area');
             const optionButtons = Array.from(optionsArea.getElementsByClassName('option-btn'));
@@ -207,12 +205,10 @@
             const correctSound = document.getElementById('correct-sound');
             const incorrectSound = document.getElementById('incorrect-sound');
 
-            // --- GAME STATE VARIABLES ---
             let currentRoomCode = null;
             let currentPlayerId = null;
             let hostPlayerId = null;
 
-            // --- CORE GAME FUNCTIONS ---
             function generateRoomCode() {
                 return Math.random().toString(36).substring(2, 6).toUpperCase();
             }
@@ -408,7 +404,6 @@
                 }
             }
             
-            // --- INITIALIZE APP & ATTACH LISTENERS ---
             warningContinueButton.addEventListener('click', () => {
                 localStorage.setItem('triviaPeekWarningSeen', 'true');
                 warningScreen.classList.add('hidden');
@@ -434,7 +429,6 @@
                 window.location.reload();
             });
 
-            // Show initial screen
             if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
                 warningScreen.classList.add('hidden');
                 homescreen.classList.remove('hidden');
