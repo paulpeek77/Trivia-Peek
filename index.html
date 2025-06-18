@@ -70,6 +70,10 @@
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
+        /* ADDED FOR EXTRA SPECIFICITY TO FIX COLOR BUG */
+        .option-btn {
+             background-color: var(--accent-color);
+        }
         .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover {
              background-color: var(--light-accent-color);
         }
@@ -192,7 +196,7 @@
             const player1ScoreDisplay = document.getElementById('player1-score');
             const player2ScoreDisplay = document.getElementById('player2-score');
             const turnIndicator = document.getElementById('turn-indicator');
-            const questionArea = document.getElementById('question-area');
+            const questionArea = document.getElementById('question-area'); 
             const questionText = document.getElementById('question-text');
             const optionsArea = document.getElementById('options-area');
             const optionButtons = Array.from(optionsArea.getElementsByClassName('option-btn'));
@@ -209,6 +213,8 @@
             let currentPlayerId = null;
             let hostPlayerId = null;
 
+            // --- ALL JS FUNCTIONS (generateRoomCode, createGame, joinGame, listenToGameChanges, etc...) ---
+            
             function generateRoomCode() {
                 return Math.random().toString(36).substring(2, 6).toUpperCase();
             }
@@ -254,11 +260,11 @@
                 gameRef.on('value', (snapshot) => {
                     if (!snapshot.exists()) { alert("Game room has closed."); window.location.reload(); return; }
                     const gameData = snapshot.val();
-                    homescreen.classList.add('hidden'); lobbyScreen.classList.add('hidden'); appContainer.classList.add('hidden'); genreSelectionScreen.classList.add('hidden'); gameContainer.classList.add('hidden');
+                    homescreen.classList.add('hidden'); lobbyScreen.classList.add('hidden'); appContainer.classList.add('hidden');
                     switch (gameData.gameState) {
                         case 'lobby': lobbyScreen.classList.remove('hidden'); roomCodeDisplay.textContent = roomCode; break;
-                        case 'selectingGenre': appContainer.classList.remove('hidden'); genreSelectionScreen.classList.remove('hidden'); buildGenreSelectionUI(gameData); break;
-                        case 'inProgress': case 'gameOver': appContainer.classList.remove('hidden'); gameContainer.classList.remove('hidden'); updateGameUI(gameData); break;
+                        case 'selectingGenre': appContainer.classList.remove('hidden'); genreSelectionScreen.classList.remove('hidden'); gameContainer.classList.add('hidden'); buildGenreSelectionUI(gameData); break;
+                        case 'inProgress': case 'gameOver': appContainer.classList.remove('hidden'); gameContainer.classList.remove('hidden'); genreSelectionScreen.classList.add('hidden'); updateGameUI(gameData); break;
                     }
                 });
             }
