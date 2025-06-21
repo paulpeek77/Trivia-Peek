@@ -70,10 +70,6 @@
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
-        /* ADDED FOR EXTRA SPECIFICITY TO FIX COLOR BUG */
-        .option-btn {
-             background-color: var(--accent-color);
-        }
         .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover {
              background-color: var(--light-accent-color);
         }
@@ -443,7 +439,5 @@
             }
         });
     </script>
-<script src="//cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
 </body>
 </html>
