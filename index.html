@@ -217,6 +217,7 @@
             const currentGenreDisplay = document.getElementById('current-genre-display');
             const scoresContainer = document.getElementById('scores-container');
             const turnIndicator = document.getElementById('turn-indicator');
+            const questionArea = document.getElementById('question-area'); // CORRECTED: Added missing element definition
             const questionText = document.getElementById('question-text');
             const optionsArea = document.getElementById('options-area');
             const optionButtons = Array.from(optionsArea.getElementsByClassName('option-btn'));
@@ -257,7 +258,6 @@
                     currentPlayerId = 1; // The creator is always Player 1
                     hostPlayerId = 1;
                     
-                    // MODIFIED: Create dynamic player objects based on selection
                     let players = {};
                     for (let i = 1; i <= selectedPlayerCount; i++) {
                         players[i] = { connected: (i === 1), score: 0 };
@@ -289,7 +289,6 @@
                     if (snapshot.exists()) {
                         const gameData = snapshot.val();
                         let nextPlayerSlot = -1;
-                        // MODIFIED: Find the next available disconnected player slot
                         for (let i = 1; i <= gameData.playerCount; i++) {
                             if (!gameData.players[i].connected) {
                                 nextPlayerSlot = i;
@@ -306,7 +305,6 @@
                             updates[`/players/${currentPlayerId}/connected`] = true;
                             await gameRef.update(updates);
 
-                            // Check if lobby is now full to advance the game state
                             const updatedSnapshot = await gameRef.once('value');
                             const updatedGameData = updatedSnapshot.val();
                             const connectedPlayers = Object.values(updatedGameData.players).filter(p => p.connected).length;
@@ -337,7 +335,6 @@
                     }
                     const gameData = snapshot.val();
                     
-                    // Hide all major screens by default
                     playerSelectionScreen.classList.add('hidden');
                     homescreen.classList.add('hidden');
                     lobbyScreen.classList.add('hidden');
@@ -366,7 +363,6 @@
                 });
             }
 
-            // NEW: Function to update the lobby UI
             function updateLobbyUI(gameData) {
                 const connectedCount = Object.values(gameData.players).filter(p => p.connected).length;
                 const totalCount = gameData.playerCount;
@@ -404,18 +400,15 @@
                     
                     const questionsObject = snapshot.val();
                     let questionsForGenre = Object.values(questionsObject);
-                    // Shuffle the array
                     for (let i = questionsForGenre.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
                     }
 
-                    // MODIFIED: Use dynamic question count
                     const gameDataSnapshot = await db.ref('games/' + currentRoomCode).once('value');
                     const gameData = gameDataSnapshot.val();
                     const questionCount = getQuestionCount(gameData.playerCount);
                     
-                    // Reset scores for all players
                     let playerResets = {};
                     Object.keys(gameData.players).forEach(pId => {
                         playerResets[`players/${pId}/score`] = 0;
@@ -436,7 +429,6 @@
                 }
             }
 
-            // MODIFIED: UpdateGameUI to handle multiple players
             function updateGameUI(gameData) {
                 if (!gameData || !gameData.players) return;
 
@@ -515,7 +507,6 @@
                 await gameRef.update(updates);
             }
 
-            // MODIFIED: nextQuestion to handle multiple players
             async function nextQuestion() {
                 if (currentPlayerId !== hostPlayerId) return;
                 const gameRef = db.ref('games/' + currentRoomCode);
@@ -540,7 +531,6 @@
                 await gameRef.update(updates);
             }
 
-            // MODIFIED: displayGameOver to handle multiple players
             function displayGameOver(gameData) {
                 questionArea.classList.add('hidden');
                 optionsArea.classList.add('hidden');
@@ -585,7 +575,6 @@
                 playerSelectionScreen.classList.remove('hidden');
             });
             
-            // NEW: Event listeners for player count selection
             document.querySelectorAll('.player-count-btn').forEach(button => {
                 button.addEventListener('click', (event) => {
                     selectedPlayerCount = parseInt(event.target.dataset.count, 10);
@@ -605,13 +594,11 @@
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
                 if (gameData && gameData.genre) {
-                    // This function already resets scores and starts a new game
                     handleGenreSelection({ target: { dataset: { genre: gameData.genre } } });
                 }
             });
 
             changeGenreButton.addEventListener('click', async () => {
-                // Host deletes the game room, others just reload to the homepage
                 if (currentPlayerId === hostPlayerId) {
                     try {
                         await db.ref('games/' + currentRoomCode).remove();
