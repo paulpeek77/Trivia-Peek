@@ -17,6 +17,7 @@
             --text-color: #f5f5f5;
             --correct-color: #28a745;
             --incorrect-color: #dc3545;
+            --master-play-color: #ffd700;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -63,9 +64,8 @@
             margin: 20px auto; background-color: var(--primary-color);
         }
         .menu-box .logo { max-width: 80%; height: auto; margin-bottom: 20px; }
-        /* CORRECTED: New rule to reduce logo size on player selection screen */
         #player-selection-screen .menu-box .logo {
-            max-width: 64%; /* 20% reduction from 80% */
+            max-width: 64%;
         }
         .menu-btn, #warning-continue-button, .genre-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, .player-count-btn {
             background-color: var(--accent-color); color: var(--text-color); border: none;
@@ -74,8 +74,16 @@
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
+        .genre-btn.master-play-btn {
+            background-color: var(--master-play-color);
+            color: var(--primary-color);
+            font-weight: bold;
+        }
         .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover, .player-count-btn:hover {
              background-color: var(--light-accent-color);
+        }
+        .genre-btn.master-play-btn:hover {
+            background-color: #e6c300;
         }
         #room-code-input {
             width: calc(100% - 24px); padding: 12px; margin-top: 20px;
@@ -145,7 +153,7 @@
             </div>
         </main>
         <section id="genre-selection-screen" class="hidden">
-            </section>
+        </section>
     </div>
 
     <div id="player-selection-screen" class="hidden">
@@ -387,9 +395,33 @@
                 }
             }
             
-            function buildGenreSelectionUI(gameData) {
+            // CORRECTED: Added "Master Play" button and logic
+            async function buildGenreSelectionUI(gameData) {
                 const isHost = (currentPlayerId === gameData.hostPlayerId);
-                genreSelectionScreen.innerHTML = `<h1>Trivia Peek - Choose a Genre</h1><p>${isHost ? "You are the host. Please select a genre to begin." : "Waiting for the host to select a genre..."}</p><div id="genre-buttons"><button class="genre-btn" data-genre="action">Action</button><button class="genre-btn" data-genre="horror">Horror</button><button class="genre-btn" data-genre="drama">Drama</button><button class="genre-btn" data-genre="suspense">Suspense</button><button class="genre-btn" data-genre="comedy">Comedy</button><button class="genre-btn" data-genre="family">Family</button></div>`;
+                let genreButtonsHTML = '';
+
+                if (isHost) {
+                    try {
+                        const genresRef = db.ref('questions');
+                        const snapshot = await genresRef.once('value');
+                        if (snapshot.exists()) {
+                            const genres = Object.keys(snapshot.val());
+                            genres.forEach(genre => {
+                                genreButtonsHTML += `<button class="genre-btn" data-genre="${genre}">${genre}</button>`;
+                            });
+                        } else {
+                            genreButtonsHTML = '<p>No genres found in database.</p>';
+                        }
+                    } catch (error) {
+                        console.error("Could not fetch genres:", error);
+                        genreButtonsHTML = '<p>Error loading genres. Please try again.</p>';
+                    }
+                    // Add the static Master Play button after the dynamic ones
+                    genreButtonsHTML += `<button class="genre-btn master-play-btn" data-genre="Master-Play">Master Play</button>`;
+                }
+
+                genreSelectionScreen.innerHTML = `<h1>Trivia Peek - Choose a Genre</h1><p>${isHost ? "You are the host. Please select a genre to begin." : "Waiting for the host to select a genre..."}</p><div id="genre-buttons">${genreButtonsHTML}</div>`;
+                
                 if (isHost) {
                     genreSelectionScreen.querySelectorAll('.genre-btn').forEach(button => {
                         button.addEventListener('click', handleGenreSelection);
@@ -397,16 +429,30 @@
                 }
             }
 
+            // CORRECTED: Updated handleGenreSelection to support "Master Play"
             async function handleGenreSelection(event) {
                 if (currentPlayerId !== hostPlayerId) return;
                 const selectedGenre = event.target.dataset.genre;
+                let allQuestions = [];
+
                 try {
-                    const questionsRef = db.ref('questions/' + selectedGenre);
-                    const snapshot = await questionsRef.once('value');
-                    if (!snapshot.exists()) { throw new Error(`Could not find questions for "${selectedGenre}".`); }
-                    
-                    const questionsObject = snapshot.val();
-                    let questionsForGenre = Object.values(questionsObject);
+                    if (selectedGenre === 'Master-Play') {
+                        const questionsRef = db.ref('questions');
+                        const snapshot = await questionsRef.once('value');
+                        if (snapshot.exists()) {
+                            const allGenres = snapshot.val();
+                            allQuestions = Object.values(allGenres).flat();
+                        } else {
+                            throw new Error('Could not find any questions in the database.');
+                        }
+                    } else {
+                        const questionsRef = db.ref(`questions/${selectedGenre}`);
+                        const snapshot = await questionsRef.once('value');
+                        if (!snapshot.exists()) { throw new Error(`Could not find questions for "${selectedGenre}".`); }
+                        allQuestions = snapshot.val();
+                    }
+
+                    let questionsForGenre = [...allQuestions];
                     for (let i = questionsForGenre.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
