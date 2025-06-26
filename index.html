@@ -33,7 +33,7 @@
             background-attachment: fixed;
         }
         .hidden { display: none !important; }
-        #app-container, #homescreen, #lobby-screen, #player-selection-screen {
+        #app-container, #lobby-screen, #player-selection-screen {
             background-color: rgba(26, 26, 29, 0.9);
             padding: 20px;
             border-radius: 15px;
@@ -79,6 +79,11 @@
             background-color: #333; color: var(--text-color);
             font-size: 1.2em; text-align: center; text-transform: uppercase;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+        #player-selection-screen hr {
+            border: none;
+            border-top: 1px solid var(--secondary-color);
+            margin: 30px 0;
         }
         #scores-container { 
             display: flex; 
@@ -142,17 +147,14 @@
     <div id="player-selection-screen" class="hidden">
         <div class="menu-box">
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
-            <h2>How Many Players?</h2>
+            <h2>Create a New Game</h2>
             <button class="player-count-btn" data-count="2">2 Players (20 Questions)</button>
             <button class="player-count-btn" data-count="3">3 Players (30 Questions)</button>
             <button class="player-count-btn" data-count="4">4 Players (40 Questions)</button>
-        </div>
-    </div>
-    
-    <div id="homescreen" class="hidden">
-        <div class="menu-box">
-            <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
-            <button id="create-game-btn" class="menu-btn">Create Game</button>
+            
+            <hr>
+
+            <h2>Or Join a Game</h2>
             <div class="join-game-section">
                 <input type="text" id="room-code-input" placeholder="ENTER ROOM CODE">
                 <button id="join-game-btn" class="menu-btn">Join Game</button>
@@ -160,7 +162,7 @@
             <p id="error-message"></p>
         </div>
     </div>
-
+    
     <div id="lobby-screen" class="hidden">
         <h2>Lobby</h2>
         <p>Share this room code with your friends:</p>
@@ -202,8 +204,6 @@
             const warningScreen = document.getElementById('warning-screen');
             const warningContinueButton = document.getElementById('warning-continue-button');
             const playerSelectionScreen = document.getElementById('player-selection-screen');
-            const homescreen = document.getElementById('homescreen');
-            const createGameBtn = document.getElementById('create-game-btn');
             const roomCodeInput = document.getElementById('room-code-input');
             const joinGameBtn = document.getElementById('join-game-btn');
             const errorMessage = document.getElementById('error-message');
@@ -246,12 +246,12 @@
                 if (playerCount === 2) return 20;
                 if (playerCount === 3) return 30;
                 if (playerCount === 4) return 40;
-                return 10; // Default
+                return 10; 
             }
 
             // --- Game Logic ---
             async function createGame() {
-                homescreen.classList.add('hidden');
+                playerSelectionScreen.classList.add('hidden');
                 lobbyScreen.classList.remove('hidden');
                 try {
                     currentRoomCode = generateRoomCode();
@@ -274,12 +274,11 @@
                 } catch (error) {
                     console.error("Could not create game:", error);
                     errorMessage.textContent = "Could not create game. Please try again.";
-                    homescreen.classList.remove('hidden');
+                    playerSelectionScreen.classList.remove('hidden');
                     lobbyScreen.classList.add('hidden');
                 }
             }
 
-            // CORRECTED: Refactored joinGame() for more robust, atomic updates.
             async function joinGame() {
                 const code = roomCodeInput.value.trim().toUpperCase();
                 if (!code) { errorMessage.textContent = 'Please enter a room code.'; return; }
@@ -292,7 +291,6 @@
                     if (snapshot.exists()) {
                         const gameData = snapshot.val();
                         
-                        // Find the next available disconnected player slot
                         let nextPlayerSlot = -1;
                         for (let i = 1; i <= gameData.playerCount; i++) {
                             if (!gameData.players[i] || !gameData.players[i].connected) {
@@ -305,18 +303,16 @@
                             currentRoomCode = code;
                             currentPlayerId = nextPlayerSlot;
                             hostPlayerId = gameData.hostPlayerId;
+                            playerSelectionScreen.classList.add('hidden');
 
-                            // Prepare a single atomic update
                             const updates = {};
                             updates[`/players/${currentPlayerId}/connected`] = true;
 
-                            // Check if this new player will fill the lobby
                             const connectedCount = Object.values(gameData.players).filter(p => p.connected).length;
                             if (connectedCount + 1 === gameData.playerCount) {
                                 updates['/gameState'] = 'selectingGenre';
                             }
                             
-                            // Perform the single, combined update
                             await gameRef.update(updates);
                             listenToGameChanges(currentRoomCode);
 
@@ -344,7 +340,6 @@
                     const gameData = snapshot.val();
                     
                     playerSelectionScreen.classList.add('hidden');
-                    homescreen.classList.add('hidden');
                     lobbyScreen.classList.add('hidden');
                     appContainer.classList.add('hidden');
 
@@ -529,7 +524,7 @@
                 
                 let nextPlayer = gameData.turnState.player + 1;
                 if (nextPlayer > gameData.playerCount) {
-                    nextPlayer = 1; // Cycle back to player 1
+                    nextPlayer = 1;
                 }
                 
                 const updates = {
@@ -583,15 +578,14 @@
                 playerSelectionScreen.classList.remove('hidden');
             });
             
+            // CORRECTED: Player count buttons now directly create the game
             document.querySelectorAll('.player-count-btn').forEach(button => {
                 button.addEventListener('click', (event) => {
                     selectedPlayerCount = parseInt(event.target.dataset.count, 10);
-                    playerSelectionScreen.classList.add('hidden');
-                    homescreen.classList.remove('hidden');
+                    createGame();
                 });
             });
 
-            createGameBtn.addEventListener('click', createGame); 
             joinGameBtn.addEventListener('click', joinGame);
             optionButtons.forEach(button => button.addEventListener('click', handleOptionClick));
             nextQuestionButton.addEventListener('click', nextQuestion);
