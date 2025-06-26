@@ -63,6 +63,10 @@
             margin: 20px auto; background-color: var(--primary-color);
         }
         .menu-box .logo { max-width: 80%; height: auto; margin-bottom: 20px; }
+        /* CORRECTED: New rule to reduce logo size on player selection screen */
+        #player-selection-screen .menu-box .logo {
+            max-width: 64%; /* 20% reduction from 80% */
+        }
         .menu-btn, #warning-continue-button, .genre-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, .player-count-btn {
             background-color: var(--accent-color); color: var(--text-color); border: none;
             padding: 15px 20px; border-radius: 8px; cursor: pointer;
@@ -578,7 +582,6 @@
                 playerSelectionScreen.classList.remove('hidden');
             });
             
-            // CORRECTED: Player count buttons now directly create the game
             document.querySelectorAll('.player-count-btn').forEach(button => {
                 button.addEventListener('click', (event) => {
                     selectedPlayerCount = parseInt(event.target.dataset.count, 10);
