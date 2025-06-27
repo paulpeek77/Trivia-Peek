@@ -78,12 +78,15 @@
             background-color: var(--master-play-color);
             color: var(--primary-color);
             font-weight: bold;
+            grid-column: 1 / -1; /* Span all columns */
+            width: 70%; /* Adjust width as desired */
+            justify-self: center; /* Center the button in the grid area */
         }
         .menu-btn:hover, #warning-continue-button:hover, .genre-btn:hover, .option-btn:hover, #next-question-button:hover, #restart-button:hover, #change-genre-button:hover, .player-count-btn:hover {
              background-color: var(--light-accent-color);
         }
         .genre-btn.master-play-btn:hover {
-            background-color: #e6c300;
+            background-color: #e6c300; /* A slightly darker gold for hover */
         }
         #room-code-input {
             width: calc(100% - 24px); padding: 12px; margin-top: 20px;
@@ -105,8 +108,10 @@
         }
         .player-score { font-weight: bold; }
         #genre-buttons {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px; margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
         }
         #options-area {
             display: grid; grid-template-columns: 1fr;
@@ -395,7 +400,6 @@
                 }
             }
             
-            // CORRECTED: Added "Master Play" button and logic
             async function buildGenreSelectionUI(gameData) {
                 const isHost = (currentPlayerId === gameData.hostPlayerId);
                 let genreButtonsHTML = '';
@@ -416,7 +420,7 @@
                         console.error("Could not fetch genres:", error);
                         genreButtonsHTML = '<p>Error loading genres. Please try again.</p>';
                     }
-                    // Add the static Master Play button after the dynamic ones
+                    
                     genreButtonsHTML += `<button class="genre-btn master-play-btn" data-genre="Master-Play">Master Play</button>`;
                 }
 
@@ -429,7 +433,6 @@
                 }
             }
 
-            // CORRECTED: Updated handleGenreSelection to support "Master Play"
             async function handleGenreSelection(event) {
                 if (currentPlayerId !== hostPlayerId) return;
                 const selectedGenre = event.target.dataset.genre;
