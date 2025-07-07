@@ -65,12 +65,12 @@
         }
         .menu-box .logo { max-width: 80%; height: auto; margin-bottom: 20px; }
         #player-selection-screen .menu-box .logo {
-            max-width: 64%;
+            max-width: 58%;
         }
         .menu-btn, #warning-continue-button, .genre-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, .player-count-btn {
             background-color: var(--accent-color); color: var(--text-color); border: none;
-            padding: 15px 20px; border-radius: 8px; cursor: pointer;
-            font-size: 1.1em; width: 100%; margin-top: 10px;
+            padding: 13px 17px; border-radius: 8px; cursor: pointer;
+            font-size: 0.94em; width: 100%; margin-top: 10px;
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
@@ -161,9 +161,13 @@
         </section>
     </div>
 
-    <div id="player-selection-screen" class="hidden">
+    <div id="player-selection-screen">
         <div class="menu-box">
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
+            <button id="single-player-btn" class="menu-btn">Single Player (10 Questions)</button>
+            
+            <hr>
+
             <h2>Create a New Game</h2>
             <button class="player-count-btn" data-count="2">2 Players (20 Questions)</button>
             <button class="player-count-btn" data-count="3">3 Players (30 Questions)</button>
@@ -188,7 +192,7 @@
         <div id="lobby-player-list"></div>
     </div>
 
-    <div id="warning-screen">
+    <div id="warning-screen" class="hidden">
         <div class="warning-box">
             <h2>WARNING</h2>
             <p>The following movie trivia game is rated R with all questions and answers listed exactly as they are established in their respective film releases. Trivia Peek may not be suitable for children, the easily offended, or any lipstick-wearing felt monkeys wearing plaid.</p>
@@ -221,6 +225,7 @@
             const warningScreen = document.getElementById('warning-screen');
             const warningContinueButton = document.getElementById('warning-continue-button');
             const playerSelectionScreen = document.getElementById('player-selection-screen');
+            const singlePlayerBtn = document.getElementById('single-player-btn');
             const roomCodeInput = document.getElementById('room-code-input');
             const joinGameBtn = document.getElementById('join-game-btn');
             const errorMessage = document.getElementById('error-message');
@@ -249,6 +254,8 @@
             const incorrectSound = document.getElementById('incorrect-sound');
 
             // --- State Variables ---
+            let isSinglePlayerMode = false;
+            let singlePlayerState = {};
             let currentRoomCode = null;
             let currentPlayerId = null;
             let hostPlayerId = null;
@@ -260,13 +267,153 @@
             }
 
             function getQuestionCount(playerCount) {
+                if (isSinglePlayerMode) return 10;
                 if (playerCount === 2) return 20;
                 if (playerCount === 3) return 30;
                 if (playerCount === 4) return 40;
                 return 10; 
             }
+             
+            // --- SINGLE PLAYER LOGIC ---
 
-            // --- Game Logic ---
+            function startSinglePlayerFlow() {
+                isSinglePlayerMode = true;
+                playerSelectionScreen.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                gameContainer.classList.add('hidden');
+                genreSelectionScreen.classList.remove('hidden');
+                buildGenreSelectionUI();
+            }
+
+            async function handleSinglePlayerGenreSelection(event) {
+                const selectedGenre = event.target.dataset.genre;
+                let allQuestions = [];
+                try {
+                     if (selectedGenre === 'Master-Play') {
+                        const questionsRef = db.ref('questions');
+                        const snapshot = await questionsRef.once('value');
+                        if (snapshot.exists()) {
+                            const allGenres = snapshot.val();
+                            allQuestions = Object.values(allGenres).flat();
+                        } else {
+                            throw new Error('Could not find any questions in the database.');
+                        }
+                    } else {
+                        const questionsRef = db.ref(`questions/${selectedGenre}`);
+                        const snapshot = await questionsRef.once('value');
+                        if (!snapshot.exists()) { throw new Error(`Could not find questions for "${selectedGenre}".`); }
+                        allQuestions = snapshot.val();
+                    }
+
+                    for (let i = allQuestions.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+                    }
+
+                    singlePlayerState = {
+                        genre: selectedGenre,
+                        questions: allQuestions.slice(0, getQuestionCount()),
+                        currentQuestionIndex: 0,
+                        score: 0,
+                        answerRevealed: false
+                    };
+                    
+                    genreSelectionScreen.classList.add('hidden');
+                    gameContainer.classList.remove('hidden');
+                    updateSinglePlayerUI();
+
+                } catch (error) {
+                    console.error('Could not start single player game:', error);
+                    alert('Could not start game. Failed to load questions.');
+                }
+            }
+
+            function updateSinglePlayerUI() {
+                if (singlePlayerState.currentQuestionIndex >= singlePlayerState.questions.length) {
+                    displaySinglePlayerGameOver();
+                    return;
+                }
+
+                // Reset UI
+                gameOverSection.classList.add('hidden');
+                questionArea.classList.remove('hidden');
+                optionsArea.classList.remove('hidden');
+                turnIndicator.classList.add('hidden'); // No turns in single player
+                feedbackMessage.textContent = '';
+                nextQuestionButton.classList.add('hidden');
+
+                // Update scores and genre
+                scoresContainer.innerHTML = `<div class="player-score">Score: <span id="player-score">${singlePlayerState.score}</span></div>`;
+                currentGenreDisplay.textContent = `Genre: ${singlePlayerState.genre}`;
+                
+                const currentQ = singlePlayerState.questions[singlePlayerState.currentQuestionIndex];
+                questionText.textContent = currentQ.questionText;
+
+                optionButtons.forEach((button, index) => {
+                    button.textContent = currentQ.options[index];
+                    button.disabled = false;
+                    button.className = 'option-btn';
+                });
+
+                if (singlePlayerState.answerRevealed) {
+                    const { chosenAnswer, correctAnswer } = singlePlayerState;
+                    optionButtons.forEach(button => {
+                        button.disabled = true;
+                        if (button.textContent === correctAnswer) button.classList.add('correct-option');
+                        if (button.textContent === chosenAnswer && button.textContent !== correctAnswer) button.classList.add('incorrect-choice');
+                    });
+                    feedbackMessage.textContent = (chosenAnswer === correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${correctAnswer}`;
+                    feedbackMessage.className = (chosenAnswer === correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
+                    nextQuestionButton.classList.remove('hidden');
+                    nextQuestionButton.focus();
+                }
+            }
+            
+            function handleSinglePlayerOptionClick(event) {
+                if (singlePlayerState.answerRevealed) return;
+
+                const userAnswer = event.target.textContent;
+                const correctAnswer = singlePlayerState.questions[singlePlayerState.currentQuestionIndex].correctAnswer;
+                
+                singlePlayerState.answerRevealed = true;
+                singlePlayerState.chosenAnswer = userAnswer;
+                singlePlayerState.correctAnswer = correctAnswer;
+
+                if (userAnswer === correctAnswer) {
+                    singlePlayerState.score++;
+                    if (correctSound) correctSound.play();
+                } else {
+                    if (incorrectSound) incorrectSound.play();
+                }
+                updateSinglePlayerUI();
+            }
+
+            function nextSinglePlayerQuestion() {
+                singlePlayerState.currentQuestionIndex++;
+                singlePlayerState.answerRevealed = false;
+                singlePlayerState.chosenAnswer = null;
+                singlePlayerState.correctAnswer = null;
+                updateSinglePlayerUI();
+            }
+
+            function displaySinglePlayerGameOver() {
+                questionArea.classList.add('hidden');
+                optionsArea.classList.add('hidden');
+                turnIndicator.classList.add('hidden');
+                feedbackMessage.textContent = '';
+                nextQuestionButton.classList.add('hidden');
+                gameOverSection.classList.remove('hidden');
+
+                gameOverMessage.textContent = "Game Over!";
+                finalScores.innerHTML = `<h3>Final Score: ${singlePlayerState.score}</h3>`;
+
+                restartButton.classList.remove('hidden');
+                changeGenreButton.textContent = "Choose New Game";
+                changeGenreButton.classList.remove('hidden');
+            }
+
+
+            // --- MULTIPLAYER LOGIC ---
             async function createGame() {
                 playerSelectionScreen.classList.add('hidden');
                 lobbyScreen.classList.remove('hidden');
@@ -345,7 +492,6 @@
                 }
             }
 
-
             function listenToGameChanges(roomCode) {
                 const gameRef = db.ref('games/' + roomCode);
                 gameRef.on('value', (snapshot) => {
@@ -401,10 +547,15 @@
             }
             
             async function buildGenreSelectionUI(gameData) {
-                const isHost = (currentPlayerId === gameData.hostPlayerId);
+                const isHost = !isSinglePlayerMode && (currentPlayerId === gameData.hostPlayerId);
+                const canSelect = isSinglePlayerMode || isHost;
                 let genreButtonsHTML = '';
+                let titleText = isSinglePlayerMode ? "Choose a Genre" : "Trivia Peek - Choose a Genre";
+                let promptText = isHost ? "You are the host. Please select a genre to begin." : "Waiting for the host to select a genre...";
+                if (isSinglePlayerMode) promptText = "Please select a genre to begin.";
 
-                if (isHost) {
+
+                if (canSelect) {
                     try {
                         const genresRef = db.ref('questions');
                         const snapshot = await genresRef.once('value');
@@ -420,13 +571,12 @@
                         console.error("Could not fetch genres:", error);
                         genreButtonsHTML = '<p>Error loading genres. Please try again.</p>';
                     }
-                    
                     genreButtonsHTML += `<button class="genre-btn master-play-btn" data-genre="Master-Play">Master Play</button>`;
                 }
 
-                genreSelectionScreen.innerHTML = `<h1>Trivia Peek - Choose a Genre</h1><p>${isHost ? "You are the host. Please select a genre to begin." : "Waiting for the host to select a genre..."}</p><div id="genre-buttons">${genreButtonsHTML}</div>`;
+                genreSelectionScreen.innerHTML = `<h1>${titleText}</h1><p>${promptText}</p><div id="genre-buttons">${genreButtonsHTML}</div>`;
                 
-                if (isHost) {
+                if (canSelect) {
                     genreSelectionScreen.querySelectorAll('.genre-btn').forEach(button => {
                         button.addEventListener('click', handleGenreSelection);
                     });
@@ -434,7 +584,12 @@
             }
 
             async function handleGenreSelection(event) {
+                if (isSinglePlayerMode) {
+                    await handleSinglePlayerGenreSelection(event);
+                    return;
+                }
                 if (currentPlayerId !== hostPlayerId) return;
+
                 const selectedGenre = event.target.dataset.genre;
                 let allQuestions = [];
 
@@ -455,10 +610,9 @@
                         allQuestions = snapshot.val();
                     }
 
-                    let questionsForGenre = [...allQuestions];
-                    for (let i = questionsForGenre.length - 1; i > 0; i--) {
+                    for (let i = allQuestions.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
-                        [questionsForGenre[i], questionsForGenre[j]] = [questionsForGenre[j], questionsForGenre[i]];
+                        [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
                     }
 
                     const gameDataSnapshot = await db.ref('games/' + currentRoomCode).once('value');
@@ -473,7 +627,7 @@
                     const updates = {
                         ...playerResets,
                         genre: selectedGenre,
-                        shuffledQuestions: questionsForGenre.slice(0, questionCount),
+                        shuffledQuestions: allQuestions.slice(0, questionCount),
                         currentQuestionIndex: 0,
                         turnState: { player: 1, answerRevealed: false },
                         gameState: 'inProgress'
@@ -486,6 +640,11 @@
             }
 
             function updateGameUI(gameData) {
+                if(isSinglePlayerMode) {
+                    updateSinglePlayerUI();
+                    return;
+                }
+
                 if (!gameData || !gameData.players) return;
 
                 scoresContainer.innerHTML = '';
@@ -494,6 +653,7 @@
                 });
                 
                 currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
+                turnIndicator.classList.remove('hidden');
                 
                 if (gameData.gameState === 'gameOver') {
                     displayGameOver(gameData);
@@ -503,7 +663,6 @@
                 gameOverSection.classList.add('hidden');
                 questionArea.classList.remove('hidden');
                 optionsArea.classList.remove('hidden');
-                turnIndicator.classList.remove('hidden');
                 feedbackMessage.textContent = '';
                 nextQuestionButton.classList.add('hidden');
                 const turnState = gameData.turnState;
@@ -539,6 +698,10 @@
             }
             
             async function handleOptionClick(event) {
+                if (isSinglePlayerMode) {
+                    handleSinglePlayerOptionClick(event);
+                    return;
+                }
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
@@ -564,6 +727,11 @@
             }
 
             async function nextQuestion() {
+                if (isSinglePlayerMode) {
+                    nextSinglePlayerQuestion();
+                    return;
+                }
+
                 if (currentPlayerId !== hostPlayerId) return;
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
@@ -588,6 +756,10 @@
             }
 
             function displayGameOver(gameData) {
+                if(isSinglePlayerMode) {
+                    displaySinglePlayerGameOver();
+                    return;
+                }
                 questionArea.classList.add('hidden');
                 optionsArea.classList.add('hidden');
                 turnIndicator.classList.add('hidden');
@@ -631,6 +803,8 @@
                 playerSelectionScreen.classList.remove('hidden');
             });
             
+            singlePlayerBtn.addEventListener('click', startSinglePlayerFlow);
+
             document.querySelectorAll('.player-count-btn').forEach(button => {
                 button.addEventListener('click', (event) => {
                     selectedPlayerCount = parseInt(event.target.dataset.count, 10);
@@ -643,7 +817,12 @@
             nextQuestionButton.addEventListener('click', nextQuestion);
             
             restartButton.addEventListener('click', async () => {
+                if (isSinglePlayerMode) {
+                    handleSinglePlayerGenreSelection({ target: { dataset: { genre: singlePlayerState.genre } } });
+                    return;
+                }
                 if (currentPlayerId !== hostPlayerId) return;
+
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
@@ -653,6 +832,11 @@
             });
 
             changeGenreButton.addEventListener('click', async () => {
+                 if (isSinglePlayerMode) {
+                    isSinglePlayerMode = false;
+                    singlePlayerState = {};
+                    // Fall through to reload
+                }
                 if (currentPlayerId === hostPlayerId) {
                     try {
                         await db.ref('games/' + currentRoomCode).remove();
@@ -669,6 +853,7 @@
                 playerSelectionScreen.classList.remove('hidden');
             } else {
                 warningScreen.classList.remove('hidden');
+                playerSelectionScreen.classList.add('hidden');
             }
         });
     </script>
