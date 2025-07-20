@@ -92,7 +92,7 @@
             width: calc(100% - 24px); padding: 12px; margin-top: 20px;
             border-radius: 8px; border: 1px solid var(--secondary-color);
             background-color: #333; color: var(--text-color);
-            font-size: 1.2em; text-align: center; text-transform: uppercase;
+            font-size: 1.2em; text-align: center; text-transform: uppercase; /* Added text-transform for visual consistency */
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
         }
         #player-selection-screen hr {
@@ -224,7 +224,7 @@
             const warningScreen = document.getElementById('warning-screen');
             const warningContinueButton = document.getElementById('warning-continue-button');
             const playerSelectionScreen = document.getElementById('player-selection-screen');
-            const playerNameInput = document.getElementById('player-name-input'); // New: Player name input
+            const playerNameInput = document.getElementById('player-name-input');
             const roomCodeInput = document.getElementById('room-code-input');
             const joinGameBtn = document.getElementById('join-game-btn');
             const errorMessage = document.getElementById('error-message');
@@ -272,7 +272,7 @@
 
             // --- Game Logic ---
             async function createGame() {
-                const playerName = playerNameInput.value.trim();
+                const playerName = playerNameInput.value.trim().toUpperCase(); // Convert to uppercase
                 if (!playerName) {
                     errorMessage.textContent = 'Please enter your name.';
                     return;
@@ -288,7 +288,7 @@
                     
                     let players = {};
                     for (let i = 1; i <= selectedPlayerCount; i++) {
-                        players[i] = { connected: (i === 1), score: 0, name: (i === 1 ? playerName : `Player ${i}`) }; // Store name
+                        players[i] = { connected: (i === 1), score: 0, name: (i === 1 ? playerName : `PLAYER ${i}`) }; // Store name in uppercase
                     }
 
                     const initialGameState = {
@@ -309,7 +309,7 @@
 
             async function joinGame() {
                 const code = roomCodeInput.value.trim().toUpperCase();
-                const playerName = playerNameInput.value.trim(); // Get player name
+                const playerName = playerNameInput.value.trim().toUpperCase(); // Convert to uppercase
                 
                 if (!playerName) { // Validate name
                     errorMessage.textContent = 'Please enter your name.';
@@ -341,7 +341,7 @@
 
                             const updates = {};
                             updates[`/players/${currentPlayerId}/connected`] = true;
-                            updates[`/players/${currentPlayerId}/name`] = playerName; // Store name for joining player
+                            updates[`/players/${currentPlayerId}/name`] = playerName; // Store name for joining player in uppercase
 
                             const connectedCount = Object.values(gameData.players).filter(p => p.connected).length;
                             if (connectedCount + 1 === gameData.playerCount) {
@@ -415,7 +415,7 @@
                 // Display player names in lobby
                 for (let i = 1; i <= totalCount; i++) {
                     const player = gameData.players[i];
-                    const playerName = player.name || `Player ${i}`; // Use name if available, else generic
+                    const playerName = (player.name || `PLAYER ${i}`).toUpperCase(); // Ensure display is uppercase
                     lobbyPlayerList.innerHTML += `<p>${playerName}: ${player.connected ? '✅' : '...'}</p>`;
                 }
             }
@@ -510,7 +510,7 @@
 
                 scoresContainer.innerHTML = '';
                 Object.entries(gameData.players).forEach(([id, player]) => {
-                    const playerName = player.name || `Player ${id}`; // Use name if available
+                    const playerName = (player.name || `PLAYER ${id}`).toUpperCase(); // Ensure display is uppercase
                     scoresContainer.innerHTML += `<div class="player-score" id="player${id}-score-container">${playerName}: <span id="player${id}-score">${player.score}</span></div>`;
                 });
                 
@@ -522,19 +522,17 @@
                 }
 
                 gameOverSection.classList.add('hidden');
-                questionArea.classList.add('hidden'); // Hide question area initially for game over screen
-                optionsArea.classList.add('hidden'); // Hide options area initially for game over screen
+                questionArea.classList.remove('hidden');
+                optionsArea.classList.remove('hidden');
                 turnIndicator.classList.remove('hidden');
                 feedbackMessage.textContent = '';
                 nextQuestionButton.classList.add('hidden');
                 const turnState = gameData.turnState;
-                const currentPlayerName = gameData.players[turnState?.player]?.name || `Player ${turnState?.player}`; // Get current player's name
-                turnIndicator.textContent = `${currentPlayerName}'s Turn`; // Display player's name
+                const currentPlayerName = (gameData.players[turnState?.player]?.name || `PLAYER ${turnState?.player}`).toUpperCase(); // Get current player's name in uppercase
+                turnIndicator.textContent = `${currentPlayerName}'S TURN`; // Display player's name in uppercase
                 const questionIndex = gameData.currentQuestionIndex;
 
                 if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
-                    questionArea.classList.remove('hidden'); // Show question area if game is in progress
-                    optionsArea.classList.remove('hidden'); // Show options area if game is in progress
                     const currentQ = gameData.shuffledQuestions[questionIndex];
                     questionText.textContent = currentQ.questionText;
                     optionButtons.forEach((button, index) => {
@@ -619,7 +617,7 @@
                 nextQuestionButton.classList.add('hidden');
                 gameOverSection.classList.remove('hidden');
                 
-                const scores = Object.entries(gameData.players).map(([id, player]) => ({ id: Number(id), score: player.score, name: player.name })); // Include name
+                const scores = Object.entries(gameData.players).map(([id, player]) => ({ id: Number(id), score: player.score, name: (player.name || `PLAYER ${id}`).toUpperCase() })); // Include name in uppercase
                 scores.sort((a, b) => b.score - a.score);
 
                 let winnerMessageText;
@@ -627,16 +625,16 @@
                 const winners = scores.filter(s => s.score === highScore);
 
                 if (winners.length > 1) {
-                    const winnerNames = winners.map(w => w.name).join(' and '); // Use names for winners
-                    winnerMessageText = `It's a tie between ${winnerNames}!`;
+                    const winnerNames = winners.map(w => w.name).join(' AND '); // Use names for winners in uppercase
+                    winnerMessageText = `IT'S A TIE BETWEEN ${winnerNames}!`;
                 } else {
-                    winnerMessageText = `${scores[0].name} Wins!`; // Use name for winner
+                    winnerMessageText = `${scores[0].name} WINS!`; // Use name for winner in uppercase
                 }
-                gameOverMessage.textContent = `Game Over! ${winnerMessageText}`;
+                gameOverMessage.textContent = `GAME OVER! ${winnerMessageText}`;
 
-                finalScores.innerHTML = '<h3>Final Scores:</h3>';
+                finalScores.innerHTML = '<h3>FINAL SCORES:</h3>';
                 scores.forEach(p => {
-                    finalScores.innerHTML += `<p>${p.name}: ${p.score}</p>`; // Display name and score
+                    finalScores.innerHTML += `<p>${p.name}: ${p.score}</p>`; // Display name and score in uppercase
                 });
 
                 if (currentPlayerId !== hostPlayerId) {
