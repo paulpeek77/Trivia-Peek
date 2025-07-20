@@ -202,6 +202,7 @@
 
     <audio id="correct-sound" src="correct.mp3" preload="auto"></audio>
     <audio id="incorrect-sound" src="incorrect.mp3" preload="auto"></audio>
+    <audio id="enter-sound" src="enter.mp3" preload="auto"></audio> <!-- New audio element -->
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -251,6 +252,7 @@
             const changeGenreButton = document.getElementById('change-genre-button');
             const correctSound = document.getElementById('correct-sound');
             const incorrectSound = document.getElementById('incorrect-sound');
+            const enterSound = document.getElementById('enter-sound'); // New: Enter sound element
 
             // --- State Variables ---
             let currentRoomCode = null;
@@ -648,6 +650,9 @@
             
             // --- Event Listeners ---
             warningContinueButton.addEventListener('click', () => {
+                // Play the enter sound
+                if (enterSound) enterSound.play(); 
+
                 localStorage.setItem('triviaPeekWarningSeen', 'true');
                 warningScreen.classList.add('hidden');
                 playerSelectionScreen.classList.remove('hidden');
