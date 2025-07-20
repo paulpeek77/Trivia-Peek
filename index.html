@@ -122,6 +122,14 @@
         .incorrect { color: var(--incorrect-color); }
         .correct-option { background-color: var(--correct-color) !important; color: white !important; }
         .incorrect-choice { background-color: var(--incorrect-color) !important; color: white !important; }
+        #timer-display { /* New style for timer */
+            font-size: 3em;
+            font-weight: bold;
+            color: var(--master-play-color); /* Gold color for timer */
+            margin-top: 10px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+        }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -141,6 +149,7 @@
         </header>
         <main id="game-container" class="hidden">
             <div id="turn-indicator">Player 1's Turn</div>
+            <div id="timer-display" class="hidden">7</div> <!-- New: Timer display -->
             <div id="question-area"><p id="question-text">Loading question...</p></div>
             <div id="options-area">
                 <button class="option-btn">Option A</button>
@@ -202,7 +211,7 @@
 
     <audio id="correct-sound" src="correct.mp3" preload="auto"></audio>
     <audio id="incorrect-sound" src="incorrect.mp3" preload="auto"></audio>
-    <audio id="enter-sound" src="enter.mp3" preload="auto"></audio> <!-- New audio element -->
+    <audio id="enter-sound" src="enter.mp3" preload="auto"></audio>
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -239,6 +248,7 @@
             const currentGenreDisplay = document.getElementById('current-genre-display');
             const scoresContainer = document.getElementById('scores-container');
             const turnIndicator = document.getElementById('turn-indicator');
+            const timerDisplay = document.getElementById('timer-display'); // New: Timer display element
             const questionArea = document.getElementById('question-area'); 
             const questionText = document.getElementById('question-text');
             const optionsArea = document.getElementById('options-area');
@@ -252,13 +262,14 @@
             const changeGenreButton = document.getElementById('change-genre-button');
             const correctSound = document.getElementById('correct-sound');
             const incorrectSound = document.getElementById('incorrect-sound');
-            const enterSound = document.getElementById('enter-sound'); // New: Enter sound element
+            const enterSound = document.getElementById('enter-sound');
 
             // --- State Variables ---
             let currentRoomCode = null;
             let currentPlayerId = null;
             let hostPlayerId = null;
             let selectedPlayerCount = 0;
+            let currentTimerInterval = null; // To store the interval ID for the timer
 
             // --- Helper Functions ---
             function generateRoomCode() {
@@ -271,6 +282,77 @@
                 if (playerCount === 4) return 40;
                 return 10; 
             }
+
+            // --- Timer Functions ---
+            function startQuestionTimer(gameData) {
+                // Clear any existing timer to prevent multiple timers running
+                if (currentTimerInterval) {
+                    clearInterval(currentTimerInterval);
+                }
+
+                const timerDuration = 7000; // 7 seconds in milliseconds
+                const timerStartedAt = gameData.turnState.timerStartedAt;
+                const currentPlayerTurn = gameData.turnState.player;
+
+                // Only the host sets the timerStartedAt in Firebase
+                if (currentPlayerId === hostPlayerId && !timerStartedAt) {
+                     db.ref(`games/${currentRoomCode}/turnState/timerStartedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+                     // The actual timer will start when this update propagates back via on('value')
+                     return; 
+                }
+
+                // All clients (including host) update their local display
+                if (timerStartedAt && currentPlayerId === currentPlayerTurn && !gameData.turnState.answerRevealed) {
+                    timerDisplay.classList.remove('hidden');
+                    currentTimerInterval = setInterval(() => {
+                        const now = Date.now();
+                        const elapsed = now - timerStartedAt;
+                        const remaining = Math.max(0, Math.ceil((timerDuration - elapsed) / 1000));
+                        timerDisplay.textContent = remaining;
+
+                        if (remaining <= 0) {
+                            clearInterval(currentTimerInterval);
+                            timerDisplay.classList.add('hidden');
+                            // If timer runs out and it's this player's turn, mark as incorrect
+                            if (currentPlayerId === currentPlayerTurn && !gameData.turnState.answerRevealed) {
+                                markAnswerIncorrectByTimer();
+                            }
+                        }
+                    }, 1000);
+                } else {
+                    timerDisplay.classList.add('hidden');
+                }
+            }
+
+            function clearQuestionTimer() {
+                if (currentTimerInterval) {
+                    clearInterval(currentTimerInterval);
+                    currentTimerInterval = null;
+                }
+                timerDisplay.classList.add('hidden');
+            }
+
+            async function markAnswerIncorrectByTimer() {
+                const gameRef = db.ref('games/' + currentRoomCode);
+                const snapshot = await gameRef.once('value');
+                const gameData = snapshot.val();
+
+                // Double check it's still this player's turn and answer hasn't been revealed
+                if (gameData && currentPlayerId === gameData.turnState.player && !gameData.turnState.answerRevealed) {
+                    let newScore = gameData.players[currentPlayerId].score;
+                    // Score does not change if incorrect, but we still mark it as such
+                    if (incorrectSound) incorrectSound.play();
+
+                    const updates = {};
+                    updates[`/players/${currentPlayerId}/score`] = newScore; // Score remains same
+                    updates['/turnState/answerRevealed'] = true;
+                    updates['/turnState/chosenAnswer'] = 'Time Expired'; // Indicate time ran out
+                    updates['/turnState/correctAnswer'] = gameData.shuffledQuestions[gameData.currentQuestionIndex].correctAnswer;
+                    updates['/turnState/timerStartedAt'] = null; // Clear timer start time
+                    await gameRef.update(updates);
+                }
+            }
+
 
             // --- Game Logic ---
             async function createGame() {
@@ -413,7 +495,7 @@
                     lobbyWaitingMessage.textContent = "All players have joined! Waiting for host to start.";
                 }
                 
-                lobbyPlayerList.innerHTML = '<h3>Players Connected:</h3>';
+                lobbyPlayerList.innerHTML = '<h3>PLAYERS CONNECTED:</h3>'; // Changed to uppercase
                 // Display player names in lobby
                 for (let i = 1; i <= totalCount; i++) {
                     const player = gameData.players[i];
@@ -446,7 +528,7 @@
                     genreButtonsHTML += `<button class="genre-btn master-play-btn" data-genre="Master-Play">Master Play</button>`;
                 }
 
-                genreSelectionScreen.innerHTML = `<h1>Trivia Peek - Choose a Genre</h1><p>${isHost ? "You are the host. Please select a genre to begin." : "Waiting for the host to select a genre..."}</p><div id="genre-buttons">${genreButtonsHTML}</div>`;
+                genreSelectionScreen.innerHTML = `<h1>TRIVIA PEEK - CHOOSE A GENRE</h1><p>${isHost ? "YOU ARE THE HOST. PLEASE SELECT A GENRE TO BEGIN." : "WAITING FOR THE HOST TO SELECT A GENRE..."}</p><div id="genre-buttons">${genreButtonsHTML}</div>`; // Changed to uppercase
                 
                 if (isHost) {
                     genreSelectionScreen.querySelectorAll('.genre-btn').forEach(button => {
@@ -497,7 +579,7 @@
                         genre: selectedGenre,
                         shuffledQuestions: questionsForGenre.slice(0, questionCount),
                         currentQuestionIndex: 0,
-                        turnState: { player: 1, answerRevealed: false },
+                        turnState: { player: 1, answerRevealed: false, timerStartedAt: null }, // Initialize timerStartedAt
                         gameState: 'inProgress'
                     };
                     await db.ref('games/' + currentRoomCode).update(updates);
@@ -516,10 +598,11 @@
                     scoresContainer.innerHTML += `<div class="player-score" id="player${id}-score-container">${playerName}: <span id="player${id}-score">${player.score}</span></div>`;
                 });
                 
-                currentGenreDisplay.textContent = `Genre: ${gameData.genre || 'N/A'}`;
+                currentGenreDisplay.textContent = `GENRE: ${gameData.genre || 'N/A'}`; // Changed to uppercase
                 
                 if (gameData.gameState === 'gameOver') {
                     displayGameOver(gameData);
+                    clearQuestionTimer(); // Clear timer on game over
                     return;
                 }
 
@@ -529,6 +612,7 @@
                 turnIndicator.classList.remove('hidden');
                 feedbackMessage.textContent = '';
                 nextQuestionButton.classList.add('hidden');
+                
                 const turnState = gameData.turnState;
                 const currentPlayerName = (gameData.players[turnState?.player]?.name || `PLAYER ${turnState?.player}`).toUpperCase(); // Get current player's name in uppercase
                 turnIndicator.textContent = `${currentPlayerName}'S TURN`; // Display player's name in uppercase
@@ -542,19 +626,22 @@
                         button.disabled = false;
                         button.className = 'option-btn';
                     });
+
                     if (turnState.answerRevealed) {
+                        clearQuestionTimer(); // Clear timer if answer is revealed
                         optionButtons.forEach(button => {
                             button.disabled = true;
                             if (button.textContent === turnState.correctAnswer) button.classList.add('correct-option');
                             if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) button.classList.add('incorrect-choice');
                         });
-                        feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "Correct!" : `Incorrect! The answer was: ${turnState.correctAnswer}`;
+                        feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "CORRECT!" : `INCORRECT! THE ANSWER WAS: ${turnState.correctAnswer.toUpperCase()}`; // Changed to uppercase
                         feedbackMessage.className = (turnState.chosenAnswer === turnState.correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
                         if (currentPlayerId === hostPlayerId) {
                             nextQuestionButton.classList.remove('hidden');
                             nextQuestionButton.focus();
                         }
                     } else {
+                        startQuestionTimer(gameData); // Start or update timer
                         optionButtons.forEach(button => {
                             button.disabled = (currentPlayerId !== turnState.player);
                         });
@@ -568,6 +655,8 @@
                 const gameData = snapshot.val();
                 if (!gameData || currentPlayerId !== gameData.turnState.player || gameData.turnState.answerRevealed) return;
                 
+                clearQuestionTimer(); // Clear timer immediately on click
+
                 const userAnswer = event.target.textContent;
                 const correctAnswer = gameData.shuffledQuestions[gameData.currentQuestionIndex].correctAnswer;
                 let newScore = gameData.players[currentPlayerId].score;
@@ -584,6 +673,7 @@
                 updates['/turnState/answerRevealed'] = true;
                 updates['/turnState/chosenAnswer'] = userAnswer;
                 updates['/turnState/correctAnswer'] = correctAnswer;
+                updates['/turnState/timerStartedAt'] = null; // Clear timer start time
                 await gameRef.update(updates);
             }
 
@@ -594,6 +684,8 @@
                 const gameData = snapshot.val();
                 const nextQuestionIndex = gameData.currentQuestionIndex + 1;
                 
+                clearQuestionTimer(); // Clear timer when moving to next question
+
                 if (nextQuestionIndex >= gameData.shuffledQuestions.length) {
                     await gameRef.update({ gameState: 'gameOver' });
                     return;
@@ -606,7 +698,7 @@
                 
                 const updates = {
                     currentQuestionIndex: nextQuestionIndex,
-                    turnState: { player: nextPlayer, answerRevealed: false }
+                    turnState: { player: nextPlayer, answerRevealed: false, timerStartedAt: null } // Reset timer start time
                 };
                 await db.ref('games/' + currentRoomCode).update(updates);
             }
@@ -617,6 +709,7 @@
                 turnIndicator.classList.add('hidden');
                 feedbackMessage.textContent = '';
                 nextQuestionButton.classList.add('hidden');
+                timerDisplay.classList.add('hidden'); // Hide timer on game over
                 gameOverSection.classList.remove('hidden');
                 
                 const scores = Object.entries(gameData.players).map(([id, player]) => ({ id: Number(id), score: player.score, name: (player.name || `PLAYER ${id}`).toUpperCase() })); // Include name in uppercase
@@ -641,10 +734,10 @@
 
                 if (currentPlayerId !== hostPlayerId) {
                     restartButton.classList.add('hidden');
-                    changeGenreButton.textContent = "Return to Home";
+                    changeGenreButton.textContent = "RETURN TO HOME"; // Changed to uppercase
                 } else {
                     restartButton.classList.remove('hidden');
-                    changeGenreButton.textContent = "New Game";
+                    changeGenreButton.textContent = "NEW GAME"; // Changed to uppercase
                 }
             }
             
@@ -675,6 +768,8 @@
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
                 if (gameData && gameData.genre) {
+                    // Reset timer state when restarting game
+                    await db.ref(`games/${currentRoomCode}/turnState/timerStartedAt`).set(null);
                     handleGenreSelection({ target: { dataset: { genre: gameData.genre } } });
                 }
             });
