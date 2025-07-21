@@ -67,7 +67,7 @@
         #player-selection-screen .menu-box .logo {
             max-width: 57.6%; /* Reduced by 10% from 64% (64 * 0.9 = 57.6) */
         }
-        .menu-btn, #warning-continue-button, .genre-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button, .player-count-btn {
+        .menu-btn, #warning-continue-button, .genre-btn, .option-btn, #next-question-button, #restart-button, #change-genre-button {
             background-color: var(--accent-color); color: var(--text-color); border: none;
             padding: 14px 20px; /* Reduced height by 7% from 15px (15 * 0.93 = 13.95) */
             border-radius: 8px; cursor: pointer;
@@ -75,6 +75,19 @@
             transition: background-color 0.3s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
+        /* Specific styling for player count buttons */
+        .player-count-btn {
+            background-color: var(--accent-color); color: var(--text-color); border: none;
+            padding: 14px 20px; /* Reduced height by 7% from 15px (15 * 0.93 = 13.95) */
+            border-radius: 8px; cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            /* These will be overridden by the grid container for width/margin */
+            width: auto; /* Ensure it doesn't force 100% width outside grid */
+            margin: 0; /* Remove default margin-top from shared class */
+        }
+
         .genre-btn.master-play-btn {
             background-color: var(--master-play-color);
             color: var(--primary-color);
@@ -131,6 +144,14 @@
             margin-bottom: 20px;
             text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
         }
+
+        /* New styles for player count buttons grid */
+        #player-count-buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Two equal columns */
+            gap: 10px; /* Space between buttons */
+            margin-top: 20px; /* Space above the grid */
+        }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -178,10 +199,12 @@
             <input type="text" id="player-name-input" placeholder="YOUR NAME" maxlength="15">
             
             <h2>Create a New Game</h2>
-            <button class="player-count-btn" data-count="1">Single Player (10 Questions)</button>
-            <button class="player-count-btn" data-count="2">2 Players (20 Questions)</button>
-            <button class="player-count-btn" data-count="3">3 Players (30 Questions)</button>
-            <button class="player-count-btn" data-count="4">4 Players (40 Questions)</button>
+            <div id="player-count-buttons-grid">
+                <button class="player-count-btn" data-count="1">Single Player (10 Questions)</button>
+                <button class="player-count-btn" data-count="2">2 Players (20 Questions)</button>
+                <button class="player-count-btn" data-count="3">3 Players (30 Questions)</button>
+                <button class="player-count-btn" data-count="4">4 Players (40 Questions)</button>
+            </div>
             
             <hr>
 
@@ -621,7 +644,7 @@
                 gameOverSection.classList.add('hidden');
                 questionArea.classList.remove('hidden');
                 optionsArea.classList.remove('hidden');
-                turnIndicator.classList.remove('hidden');
+                turnIndicator.classList.add('hidden');
                 feedbackMessage.textContent = '';
                 nextQuestionButton.classList.add('hidden');
                 
