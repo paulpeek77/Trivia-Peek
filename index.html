@@ -177,6 +177,7 @@
             <input type="text" id="player-name-input" placeholder="YOUR NAME" maxlength="15">
             
             <h2>Create a New Game</h2>
+            <button class="player-count-btn" data-count="1">1 Player (10 Questions)</button>
             <button class="player-count-btn" data-count="2">2 Players (20 Questions)</button>
             <button class="player-count-btn" data-count="3">3 Players (30 Questions)</button>
             <button class="player-count-btn" data-count="4">4 Players (40 Questions)</button>
@@ -276,11 +277,13 @@
                 return Math.random().toString(36).substring(2, 6).toUpperCase();
             }
 
+            // Modified to handle 1 player for 10 questions
             function getQuestionCount(playerCount) {
+                if (playerCount === 1) return 10; // Single player gets 10 questions
                 if (playerCount === 2) return 20;
                 if (playerCount === 3) return 30;
                 if (playerCount === 4) return 40;
-                return 10; 
+                return 10; // Default fallback, though should be covered
             }
 
             // --- Timer Functions ---
@@ -364,25 +367,33 @@
                 errorMessage.textContent = ''; // Clear error message
 
                 playerSelectionScreen.classList.add('hidden');
-                lobbyScreen.classList.remove('hidden');
+                
                 try {
                     currentRoomCode = generateRoomCode();
                     currentPlayerId = 1; 
                     hostPlayerId = 1;
                     
                     let players = {};
-                    for (let i = 1; i <= selectedPlayerCount; i++) {
-                        players[i] = { connected: (i === 1), score: 0, name: (i === 1 ? playerName : `PLAYER ${i}`) }; // Store name in uppercase
-                    }
+                    players[1] = { connected: true, score: 0, name: playerName }; // Store name in uppercase for player 1
 
                     const initialGameState = {
-                        gameState: 'lobby',
+                        gameState: (selectedPlayerCount === 1) ? 'selectingGenre' : 'lobby', // Directly to genre selection for single player
                         playerCount: selectedPlayerCount,
                         players: players,
                         hostPlayerId: 1
                     };
                     await db.ref('games/' + currentRoomCode).set(initialGameState);
                     listenToGameChanges(currentRoomCode);
+
+                    if (selectedPlayerCount === 1) {
+                        // For single player, skip lobby and go straight to genre selection
+                        appContainer.classList.remove('hidden');
+                        genreSelectionScreen.classList.remove('hidden');
+                        buildGenreSelectionUI(initialGameState); // Pass initialGameState to build UI
+                    } else {
+                        lobbyScreen.classList.remove('hidden');
+                    }
+
                 } catch (error) {
                     console.error("Could not create game:", error);
                     errorMessage.textContent = "Could not create game. Please try again.";
@@ -643,7 +654,9 @@
                     } else {
                         startQuestionTimer(gameData); // Start or update timer
                         optionButtons.forEach(button => {
-                            button.disabled = (currentPlayerId !== turnState.player);
+                            // Only enable buttons if it's the current player's turn AND not a single player game (single player always enabled)
+                            // Or if it's a single player game (playerCount === 1)
+                            button.disabled = (gameData.playerCount !== 1 && currentPlayerId !== turnState.player);
                         });
                     }
                 }
@@ -653,7 +666,8 @@
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
-                if (!gameData || currentPlayerId !== gameData.turnState.player || gameData.turnState.answerRevealed) return;
+                // Allow click if it's current player's turn OR if it's a single player game
+                if (!gameData || (gameData.playerCount !== 1 && currentPlayerId !== gameData.turnState.player) || gameData.turnState.answerRevealed) return;
                 
                 clearQuestionTimer(); // Clear timer immediately on click
 
@@ -678,10 +692,13 @@
             }
 
             async function nextQuestion() {
-                if (currentPlayerId !== hostPlayerId) return;
+                // For single player, anyone can click next question, otherwise only host
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
+
+                if (gameData.playerCount !== 1 && currentPlayerId !== hostPlayerId) return; // Multi-player host check
+
                 const nextQuestionIndex = gameData.currentQuestionIndex + 1;
                 
                 clearQuestionTimer(); // Clear timer when moving to next question
@@ -732,7 +749,11 @@
                     finalScores.innerHTML += `<p>${p.name}: ${p.score}</p>`; // Display name and score in uppercase
                 });
 
-                if (currentPlayerId !== hostPlayerId) {
+                // For single player, both buttons are always visible
+                if (gameData.playerCount === 1) {
+                    restartButton.classList.remove('hidden');
+                    changeGenreButton.textContent = "NEW GAME"; // Changed to uppercase
+                } else if (currentPlayerId !== hostPlayerId) {
                     restartButton.classList.add('hidden');
                     changeGenreButton.textContent = "RETURN TO HOME"; // Changed to uppercase
                 } else {
@@ -763,7 +784,7 @@
             nextQuestionButton.addEventListener('click', nextQuestion);
             
             restartButton.addEventListener('click', async () => {
-                if (currentPlayerId !== hostPlayerId) return;
+                if (currentPlayerId !== hostPlayerId && selectedPlayerCount !== 1) return; // Only host or single player can restart
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
@@ -775,7 +796,8 @@
             });
 
             changeGenreButton.addEventListener('click', async () => {
-                if (currentPlayerId === hostPlayerId) {
+                // For single player, always remove the game room
+                if (currentPlayerId === hostPlayerId || selectedPlayerCount === 1) {
                     try {
                         await db.ref('games/' + currentRoomCode).remove();
                     } catch (error) {
