@@ -145,12 +145,20 @@
             text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
         }
 
-        /* New styles for player count buttons grid and game mode buttons grid */
-        #player-count-buttons-grid, #game-mode-buttons-grid {
+        /* New styles for player count buttons grid */
+        #player-count-buttons-grid {
             display: grid;
             grid-template-columns: 1fr 1fr; /* Two equal columns */
             gap: 10px; /* Space between buttons */
             margin-top: 20px; /* Space above the grid */
+        }
+
+        /* Adjusted styles for game mode buttons grid */
+        #game-mode-buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* Single column */
+            gap: 15px; /* More space between stacked buttons */
+            margin-top: 20px;
         }
     </style>
 
@@ -197,8 +205,8 @@
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
             <h2>Select Game Mode</h2>
             <div id="game-mode-buttons-grid">
-                <button class="game-mode-btn" data-mode="relaxed">Relaxed Mode (10s per question)</button>
-                <button class="game-mode-btn" data-mode="challenge">Challenge Mode (7s per question)</button>
+                <button class="game-mode-btn" data-mode="relaxed">Relaxed Mode:<br>10 seconds per question</button>
+                <button class="game-mode-btn" data-mode="challenge">Challenge Mode:<br>7 seconds per question</button>
             </div>
         </div>
     </div>
