@@ -179,7 +179,7 @@
         </header>
         <main id="game-container" class="hidden">
             <div id="turn-indicator">Player 1's Turn</div>
-            <div id="timer-display" class="hidden">7</div> <!-- New: Timer display -->
+            <div id="timer-display" class="hidden">7</div> <!-- Timer display -->
             <div id="question-area"><p id="question-text">Loading question...</p></div>
             <div id="options-area">
                 <button class="option-btn">Option A</button>
@@ -200,12 +200,14 @@
         </section>
     </div>
 
+    <!-- UPDATED: Game Mode Screen with three options -->
     <div id="game-mode-screen" class="hidden">
         <div class="menu-box">
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
             <h2>Select Game Mode</h2>
             <div id="game-mode-buttons-grid">
-                <button class="game-mode-btn" data-mode="relaxed">Relaxed Mode:<br>10 seconds per question</button>
+                <button class="game-mode-btn" data-mode="relaxed">Relaxed Mode:<br>No timer</button>
+                <button class="game-mode-btn" data-mode="intermediate">Intermediate Mode:<br>10 seconds per question</button>
                 <button class="game-mode-btn" data-mode="challenge">Challenge Mode:<br>7 seconds per question</button>
             </div>
         </div>
@@ -277,9 +279,9 @@
             // --- Element Selectors ---
             const warningScreen = document.getElementById('warning-screen');
             const warningContinueButton = document.getElementById('warning-continue-button');
-            const gameModeScreen = document.getElementById('game-mode-screen'); // New: Game Mode Screen
-            const relaxedModeButton = document.querySelector('.game-mode-btn[data-mode="relaxed"]'); // New: Relaxed Mode Button
-            const challengeModeButton = document.querySelector('.game-mode-btn[data-mode="challenge"]'); // New: Challenge Mode Button
+            const gameModeScreen = document.getElementById('game-mode-screen');
+            // UPDATED: Select all game mode buttons
+            const gameModeButtons = document.querySelectorAll('.game-mode-btn');
             const playerSelectionScreen = document.getElementById('player-selection-screen');
             const playerNameInput = document.getElementById('player-name-input');
             const roomCodeInput = document.getElementById('room-code-input');
@@ -295,7 +297,7 @@
             const currentGenreDisplay = document.getElementById('current-genre-display');
             const scoresContainer = document.getElementById('scores-container');
             const turnIndicator = document.getElementById('turn-indicator');
-            const timerDisplay = document.getElementById('timer-display'); // New: Timer display element
+            const timerDisplay = document.getElementById('timer-display');
             const questionArea = document.getElementById('question-area'); 
             const questionText = document.getElementById('question-text');
             const optionsArea = document.getElementById('options-area');
@@ -316,7 +318,7 @@
             let currentPlayerId = null;
             let hostPlayerId = null;
             let selectedPlayerCount = 0;
-            let currentTimerInterval = null; // To store the interval ID for the timer
+            let currentTimerInterval = null; 
             let selectedGameMode = 'challenge'; // Default game mode
 
             // --- Helper Functions ---
@@ -324,30 +326,39 @@
                 return Math.random().toString(36).substring(2, 6).toUpperCase();
             }
 
-            // Modified to handle 1 player for 10 questions
             function getQuestionCount(playerCount) {
-                if (playerCount === 1) return 10; // Single player gets 10 questions
+                if (playerCount === 1) return 10;
                 if (playerCount === 2) return 20;
                 if (playerCount === 3) return 30;
                 if (playerCount === 4) return 40;
-                return 10; // Default fallback, though should be covered
+                return 10; 
             }
 
             // --- Timer Functions ---
+            // UPDATED: To handle three game modes
             function startQuestionTimer(gameData) {
                 // Clear any existing timer to prevent multiple timers running
                 if (currentTimerInterval) {
                     clearInterval(currentTimerInterval);
                 }
 
-                const timerDuration = (gameData.gameMode === 'relaxed') ? 10000 : 7000; // 10 seconds for relaxed, 7 for challenge
+                // Determine timer duration based on game mode
+                let timerDuration;
+                if (gameData.gameMode === 'intermediate') {
+                    timerDuration = 10000; // 10 seconds
+                } else if (gameData.gameMode === 'challenge') {
+                    timerDuration = 7000;  // 7 seconds
+                } else { // 'relaxed' mode or any other case
+                    timerDisplay.classList.add('hidden');
+                    return; // No timer for relaxed mode
+                }
+
                 const timerStartedAt = gameData.turnState.timerStartedAt;
                 const currentPlayerTurn = gameData.turnState.player;
 
                 // Only the host sets the timerStartedAt in Firebase
                 if (currentPlayerId === hostPlayerId && !timerStartedAt) {
                      db.ref(`games/${currentRoomCode}/turnState/timerStartedAt`).set(firebase.database.ServerValue.TIMESTAMP);
-                     // The actual timer will start when this update propagates back via on('value')
                      return; 
                 }
 
@@ -363,7 +374,6 @@
                         if (remaining <= 0) {
                             clearInterval(currentTimerInterval);
                             timerDisplay.classList.add('hidden');
-                            // If timer runs out and it's this player's turn, mark as incorrect
                             if (currentPlayerId === currentPlayerTurn && !gameData.turnState.answerRevealed) {
                                 markAnswerIncorrectByTimer();
                             }
@@ -387,18 +397,16 @@
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
 
-                // Double check it's still this player's turn and answer hasn't been revealed
                 if (gameData && currentPlayerId === gameData.turnState.player && !gameData.turnState.answerRevealed) {
                     let newScore = gameData.players[currentPlayerId].score;
-                    // Score does not change if incorrect, but we still mark it as such
                     if (incorrectSound) incorrectSound.play();
 
                     const updates = {};
-                    updates[`/players/${currentPlayerId}/score`] = newScore; // Score remains same
+                    updates[`/players/${currentPlayerId}/score`] = newScore;
                     updates['/turnState/answerRevealed'] = true;
-                    updates['/turnState/chosenAnswer'] = 'Time Expired'; // Indicate time ran out
+                    updates['/turnState/chosenAnswer'] = 'Time Expired';
                     updates['/turnState/correctAnswer'] = gameData.shuffledQuestions[gameData.currentQuestionIndex].correctAnswer;
-                    updates['/turnState/timerStartedAt'] = null; // Clear timer start time
+                    updates['/turnState/timerStartedAt'] = null;
                     await gameRef.update(updates);
                 }
             }
@@ -406,12 +414,12 @@
 
             // --- Game Logic ---
             async function createGame() {
-                const playerName = playerNameInput.value.trim().toUpperCase(); // Convert to uppercase
+                const playerName = playerNameInput.value.trim().toUpperCase();
                 if (!playerName) {
                     errorMessage.textContent = 'Please enter your name.';
                     return;
                 }
-                errorMessage.textContent = ''; // Clear error message
+                errorMessage.textContent = '';
 
                 playerSelectionScreen.classList.add('hidden');
                 
@@ -421,10 +429,10 @@
                     hostPlayerId = 1;
                     
                     let players = {};
-                    players[1] = { connected: true, score: 0, name: playerName }; // Store name in uppercase for player 1
+                    players[1] = { connected: true, score: 0, name: playerName };
 
                     const initialGameState = {
-                        gameState: (selectedPlayerCount === 1) ? 'selectingGenre' : 'lobby', // Directly to genre selection for single player
+                        gameState: (selectedPlayerCount === 1) ? 'selectingGenre' : 'lobby',
                         playerCount: selectedPlayerCount,
                         players: players,
                         hostPlayerId: 1,
@@ -434,10 +442,9 @@
                     listenToGameChanges(currentRoomCode);
 
                     if (selectedPlayerCount === 1) {
-                        // For single player, skip lobby and go straight to genre selection
                         appContainer.classList.remove('hidden');
                         genreSelectionScreen.classList.remove('hidden');
-                        buildGenreSelectionUI(initialGameState); // Pass initialGameState to build UI
+                        buildGenreSelectionUI(initialGameState);
                     } else {
                         lobbyScreen.classList.remove('hidden');
                     }
@@ -452,9 +459,9 @@
 
             async function joinGame() {
                 const code = roomCodeInput.value.trim().toUpperCase();
-                const playerName = playerNameInput.value.trim().toUpperCase(); // Convert to uppercase
+                const playerName = playerNameInput.value.trim().toUpperCase();
                 
-                if (!playerName) { // Validate name
+                if (!playerName) {
                     errorMessage.textContent = 'Please enter your name.';
                     return;
                 }
@@ -484,7 +491,7 @@
 
                             const updates = {};
                             updates[`/players/${currentPlayerId}/connected`] = true;
-                            updates[`/players/${currentPlayerId}/name`] = playerName; // Store name for joining player in uppercase
+                            updates[`/players/${currentPlayerId}/name`] = playerName;
 
                             const connectedCount = Object.values(gameData.players).filter(p => p.connected).length;
                             if (connectedCount + 1 === gameData.playerCount) {
@@ -520,7 +527,7 @@
                     playerSelectionScreen.classList.add('hidden');
                     lobbyScreen.classList.add('hidden');
                     appContainer.classList.add('hidden');
-                    gameModeScreen.classList.add('hidden'); // Ensure game mode screen is hidden
+                    gameModeScreen.classList.add('hidden');
 
                     switch (gameData.gameState) {
                         case 'lobby':
@@ -555,11 +562,10 @@
                     lobbyWaitingMessage.textContent = "All players have joined! Waiting for host to start.";
                 }
                 
-                lobbyPlayerList.innerHTML = '<h3>PLAYERS CONNECTED:</h3>'; // Changed to uppercase
-                // Display player names in lobby
+                lobbyPlayerList.innerHTML = '<h3>PLAYERS CONNECTED:</h3>';
                 for (let i = 1; i <= totalCount; i++) {
                     const player = gameData.players[i];
-                    const playerName = (player.name || `PLAYER ${i}`).toUpperCase(); // Ensure display is uppercase
+                    const playerName = (player.name || `PLAYER ${i}`).toUpperCase();
                     lobbyPlayerList.innerHTML += `<p>${playerName}: ${player.connected ? '✅' : '...'}</p>`;
                 }
             }
@@ -588,7 +594,7 @@
                     genreButtonsHTML += `<button class="genre-btn master-play-btn" data-genre="Master-Play">Master Play</button>`;
                 }
 
-                genreSelectionScreen.innerHTML = `<h1>TRIVIA PEEK - CHOOSE A GENRE</h1><p>${isHost ? "YOU ARE THE HOST. PLEASE SELECT A GENRE TO BEGIN." : "WAITING FOR THE HOST TO SELECT A GENRE..."}</p><div id="genre-buttons">${genreButtonsHTML}</div>`; // Changed to uppercase
+                genreSelectionScreen.innerHTML = `<h1>TRIVIA PEEK - CHOOSE A GENRE</h1><p>${isHost ? "YOU ARE THE HOST. PLEASE SELECT A GENRE TO BEGIN." : "WAITING FOR THE HOST TO SELECT A GENRE..."}</p><div id="genre-buttons">${genreButtonsHTML}</div>`;
                 
                 if (isHost) {
                     genreSelectionScreen.querySelectorAll('.genre-btn').forEach(button => {
@@ -639,7 +645,7 @@
                         genre: selectedGenre,
                         shuffledQuestions: questionsForGenre.slice(0, questionCount),
                         currentQuestionIndex: 0,
-                        turnState: { player: 1, answerRevealed: false, timerStartedAt: null }, // Initialize timerStartedAt
+                        turnState: { player: 1, answerRevealed: false, timerStartedAt: null },
                         gameState: 'inProgress'
                     };
                     await db.ref('games/' + currentRoomCode).update(updates);
@@ -654,15 +660,15 @@
 
                 scoresContainer.innerHTML = '';
                 Object.entries(gameData.players).forEach(([id, player]) => {
-                    const playerName = (player.name || `PLAYER ${id}`).toUpperCase(); // Ensure display is uppercase
+                    const playerName = (player.name || `PLAYER ${id}`).toUpperCase();
                     scoresContainer.innerHTML += `<div class="player-score" id="player${id}-score-container">${playerName}: <span id="player${id}-score">${player.score}</span></div>`;
                 });
                 
-                currentGenreDisplay.textContent = `GENRE: ${gameData.genre || 'N/A'}`; // Changed to uppercase
+                currentGenreDisplay.textContent = `GENRE: ${gameData.genre || 'N/A'}`;
                 
                 if (gameData.gameState === 'gameOver') {
                     displayGameOver(gameData);
-                    clearQuestionTimer(); // Clear timer on game over
+                    clearQuestionTimer();
                     return;
                 }
 
@@ -674,8 +680,8 @@
                 nextQuestionButton.classList.add('hidden');
                 
                 const turnState = gameData.turnState;
-                const currentPlayerName = (gameData.players[turnState?.player]?.name || `PLAYER ${turnState?.player}`).toUpperCase(); // Get current player's name in uppercase
-                turnIndicator.textContent = `${currentPlayerName}'S TURN`; // Display player's name in uppercase
+                const currentPlayerName = (gameData.players[turnState?.player]?.name || `PLAYER ${turnState?.player}`).toUpperCase();
+                turnIndicator.textContent = `${currentPlayerName}'S TURN`;
                 const questionIndex = gameData.currentQuestionIndex;
 
                 if (gameData.shuffledQuestions && questionIndex < gameData.shuffledQuestions.length) {
@@ -688,23 +694,21 @@
                     });
 
                     if (turnState.answerRevealed) {
-                        clearQuestionTimer(); // Clear timer if answer is revealed
+                        clearQuestionTimer();
                         optionButtons.forEach(button => {
                             button.disabled = true;
                             if (button.textContent === turnState.correctAnswer) button.classList.add('correct-option');
                             if (button.textContent === turnState.chosenAnswer && button.textContent !== turnState.correctAnswer) button.classList.add('incorrect-choice');
                         });
-                        feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "CORRECT!" : `INCORRECT! THE ANSWER WAS: ${turnState.correctAnswer.toUpperCase()}`; // Changed to uppercase
+                        feedbackMessage.textContent = (turnState.chosenAnswer === turnState.correctAnswer) ? "CORRECT!" : `INCORRECT! THE ANSWER WAS: ${turnState.correctAnswer.toUpperCase()}`;
                         feedbackMessage.className = (turnState.chosenAnswer === turnState.correctAnswer) ? 'feedback-message correct' : 'feedback-message incorrect';
                         if (currentPlayerId === hostPlayerId) {
                             nextQuestionButton.classList.remove('hidden');
                             nextQuestionButton.focus();
                         }
                     } else {
-                        startQuestionTimer(gameData); // Start or update timer
+                        startQuestionTimer(gameData);
                         optionButtons.forEach(button => {
-                            // Only enable buttons if it's the current player's turn AND not a single player game (single player always enabled)
-                            // Or if it's a single player game (playerCount === 1)
                             button.disabled = (gameData.playerCount !== 1 && currentPlayerId !== turnState.player);
                         });
                     }
@@ -715,10 +719,9 @@
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
-                // Allow click if it's current player's turn OR if it's a single player game
                 if (!gameData || (gameData.playerCount !== 1 && currentPlayerId !== gameData.turnState.player) || gameData.turnState.answerRevealed) return;
                 
-                clearQuestionTimer(); // Clear timer immediately on click
+                clearQuestionTimer();
 
                 const userAnswer = event.target.textContent;
                 const correctAnswer = gameData.shuffledQuestions[gameData.currentQuestionIndex].correctAnswer;
@@ -736,21 +739,20 @@
                 updates['/turnState/answerRevealed'] = true;
                 updates['/turnState/chosenAnswer'] = userAnswer;
                 updates['/turnState/correctAnswer'] = correctAnswer;
-                updates['/turnState/timerStartedAt'] = null; // Clear timer start time
+                updates['/turnState/timerStartedAt'] = null;
                 await gameRef.update(updates);
             }
 
             async function nextQuestion() {
-                // For single player, anyone can click next question, otherwise only host
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
 
-                if (gameData.playerCount !== 1 && currentPlayerId !== hostPlayerId) return; // Multi-player host check
+                if (gameData.playerCount !== 1 && currentPlayerId !== hostPlayerId) return;
 
                 const nextQuestionIndex = gameData.currentQuestionIndex + 1;
                 
-                clearQuestionTimer(); // Clear timer when moving to next question
+                clearQuestionTimer();
 
                 if (nextQuestionIndex >= gameData.shuffledQuestions.length) {
                     await gameRef.update({ gameState: 'gameOver' });
@@ -764,7 +766,7 @@
                 
                 const updates = {
                     currentQuestionIndex: nextQuestionIndex,
-                    turnState: { player: nextPlayer, answerRevealed: false, timerStartedAt: null } // Reset timer start time
+                    turnState: { player: nextPlayer, answerRevealed: false, timerStartedAt: null }
                 };
                 await db.ref('games/' + currentRoomCode).update(updates);
             }
@@ -775,10 +777,10 @@
                 turnIndicator.classList.add('hidden');
                 feedbackMessage.textContent = '';
                 nextQuestionButton.classList.add('hidden');
-                timerDisplay.classList.add('hidden'); // Hide timer on game over
+                timerDisplay.classList.add('hidden');
                 gameOverSection.classList.remove('hidden');
                 
-                const scores = Object.entries(gameData.players).map(([id, player]) => ({ id: Number(id), score: player.score, name: (player.name || `PLAYER ${id}`).toUpperCase() })); // Include name in uppercase
+                const scores = Object.entries(gameData.players).map(([id, player]) => ({ id: Number(id), score: player.score, name: (player.name || `PLAYER ${id}`).toUpperCase() }));
                 scores.sort((a, b) => b.score - a.score);
 
                 let winnerMessageText;
@@ -786,52 +788,45 @@
                 const winners = scores.filter(s => s.score === highScore);
 
                 if (winners.length > 1) {
-                    const winnerNames = winners.map(w => w.name).join(' AND '); // Use names for winners in uppercase
+                    const winnerNames = winners.map(w => w.name).join(' AND ');
                     winnerMessageText = `IT'S A TIE BETWEEN ${winnerNames}!`;
                 } else {
-                    winnerMessageText = `${scores[0].name} WINS!`; // Use name for winner in uppercase
+                    winnerMessageText = `${scores[0].name} WINS!`;
                 }
                 gameOverMessage.textContent = `GAME OVER! ${winnerMessageText}`;
 
                 finalScores.innerHTML = '<h3>FINAL SCORES:</h3>';
                 scores.forEach(p => {
-                    finalScores.innerHTML += `<p>${p.name}: ${p.score}</p>`; // Display name and score in uppercase
+                    finalScores.innerHTML += `<p>${p.name}: ${p.score}</p>`;
                 });
 
-                // For single player, both buttons are always visible
                 if (gameData.playerCount === 1) {
                     restartButton.classList.remove('hidden');
-                    changeGenreButton.textContent = "NEW GAME"; // Changed to uppercase
+                    changeGenreButton.textContent = "NEW GAME";
                 } else if (currentPlayerId !== hostPlayerId) {
                     restartButton.classList.add('hidden');
-                    changeGenreButton.textContent = "RETURN TO HOME"; // Changed to uppercase
+                    changeGenreButton.textContent = "RETURN TO HOME";
                 } else {
                     restartButton.classList.remove('hidden');
-                    changeGenreButton.textContent = "NEW GAME"; // Changed to uppercase
+                    changeGenreButton.textContent = "NEW GAME";
                 }
             }
             
             // --- Event Listeners ---
             warningContinueButton.addEventListener('click', () => {
-                // Play the enter sound
                 if (enterSound) enterSound.play(); 
-
                 localStorage.setItem('triviaPeekWarningSeen', 'true');
                 warningScreen.classList.add('hidden');
-                gameModeScreen.classList.remove('hidden'); // Transition to game mode screen
+                gameModeScreen.classList.remove('hidden');
             });
 
-            // New: Event listeners for game mode buttons
-            relaxedModeButton.addEventListener('click', () => {
-                selectedGameMode = 'relaxed';
-                gameModeScreen.classList.add('hidden');
-                playerSelectionScreen.classList.remove('hidden');
-            });
-
-            challengeModeButton.addEventListener('click', () => {
-                selectedGameMode = 'challenge';
-                gameModeScreen.classList.add('hidden');
-                playerSelectionScreen.classList.remove('hidden');
+            // UPDATED: Event listener for all game mode buttons
+            gameModeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    selectedGameMode = button.dataset.mode;
+                    gameModeScreen.classList.add('hidden');
+                    playerSelectionScreen.classList.remove('hidden');
+                });
             });
             
             document.querySelectorAll('.player-count-btn').forEach(button => {
@@ -846,19 +841,17 @@
             nextQuestionButton.addEventListener('click', nextQuestion);
             
             restartButton.addEventListener('click', async () => {
-                if (currentPlayerId !== hostPlayerId && selectedPlayerCount !== 1) return; // Only host or single player can restart
+                if (currentPlayerId !== hostPlayerId && selectedPlayerCount !== 1) return;
                 const gameRef = db.ref('games/' + currentRoomCode);
                 const snapshot = await gameRef.once('value');
                 const gameData = snapshot.val();
                 if (gameData && gameData.genre) {
-                    // Reset timer state when restarting game
                     await db.ref(`games/${currentRoomCode}/turnState/timerStartedAt`).set(null);
                     handleGenreSelection({ target: { dataset: { genre: gameData.genre } } });
                 }
             });
 
             changeGenreButton.addEventListener('click', async () => {
-                // For single player, always remove the game room
                 if (currentPlayerId === hostPlayerId || selectedPlayerCount === 1) {
                     try {
                         await db.ref('games/' + currentRoomCode).remove();
@@ -872,7 +865,7 @@
             // --- Initial Page Load ---
             if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
                 warningScreen.classList.add('hidden');
-                gameModeScreen.classList.remove('hidden'); // Show game mode screen on initial load if warning seen
+                gameModeScreen.classList.remove('hidden');
             } else {
                 warningScreen.classList.remove('hidden');
             }
