@@ -200,7 +200,7 @@
         </section>
     </div>
 
-    <!-- UPDATED: Game Mode Screen with three options -->
+    <!-- Game Mode Screen: Appears AFTER player selection for host -->
     <div id="game-mode-screen" class="hidden">
         <div class="menu-box">
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
@@ -213,6 +213,7 @@
         </div>
     </div>
 
+    <!-- Player Selection Screen: Appears FIRST after warning -->
     <div id="player-selection-screen" class="hidden">
         <div class="menu-box">
             <img src="icon-512x512.png" alt="Trivia Peek Logo" class="logo">
@@ -280,7 +281,6 @@
             const warningScreen = document.getElementById('warning-screen');
             const warningContinueButton = document.getElementById('warning-continue-button');
             const gameModeScreen = document.getElementById('game-mode-screen');
-            // UPDATED: Select all game mode buttons
             const gameModeButtons = document.querySelectorAll('.game-mode-btn');
             const playerSelectionScreen = document.getElementById('player-selection-screen');
             const playerNameInput = document.getElementById('player-name-input');
@@ -335,34 +335,29 @@
             }
 
             // --- Timer Functions ---
-            // UPDATED: To handle three game modes
             function startQuestionTimer(gameData) {
-                // Clear any existing timer to prevent multiple timers running
                 if (currentTimerInterval) {
                     clearInterval(currentTimerInterval);
                 }
 
-                // Determine timer duration based on game mode
                 let timerDuration;
                 if (gameData.gameMode === 'intermediate') {
-                    timerDuration = 10000; // 10 seconds
+                    timerDuration = 10000;
                 } else if (gameData.gameMode === 'challenge') {
-                    timerDuration = 7000;  // 7 seconds
-                } else { // 'relaxed' mode or any other case
+                    timerDuration = 7000;
+                } else { 
                     timerDisplay.classList.add('hidden');
-                    return; // No timer for relaxed mode
+                    return;
                 }
 
                 const timerStartedAt = gameData.turnState.timerStartedAt;
                 const currentPlayerTurn = gameData.turnState.player;
 
-                // Only the host sets the timerStartedAt in Firebase
                 if (currentPlayerId === hostPlayerId && !timerStartedAt) {
                      db.ref(`games/${currentRoomCode}/turnState/timerStartedAt`).set(firebase.database.ServerValue.TIMESTAMP);
                      return; 
                 }
 
-                // All clients (including host) update their local display
                 if (timerStartedAt && currentPlayerId === currentPlayerTurn && !gameData.turnState.answerRevealed) {
                     timerDisplay.classList.remove('hidden');
                     currentTimerInterval = setInterval(() => {
@@ -416,12 +411,15 @@
             async function createGame() {
                 const playerName = playerNameInput.value.trim().toUpperCase();
                 if (!playerName) {
-                    errorMessage.textContent = 'Please enter your name.';
+                    // This check is now a fallback, primary check should be before showing mode screen
+                    alert('Please go back and enter your name.');
                     return;
                 }
                 errorMessage.textContent = '';
 
+                // Hide all setup screens
                 playerSelectionScreen.classList.add('hidden');
+                gameModeScreen.classList.add('hidden');
                 
                 try {
                     currentRoomCode = generateRoomCode();
@@ -453,7 +451,6 @@
                     console.error("Could not create game:", error);
                     errorMessage.textContent = "Could not create game. Please try again.";
                     playerSelectionScreen.classList.remove('hidden');
-                    lobbyScreen.classList.add('hidden');
                 }
             }
 
@@ -524,6 +521,7 @@
                     }
                     const gameData = snapshot.val();
                     
+                    // Hide all potential screens first to ensure a clean slate
                     playerSelectionScreen.classList.add('hidden');
                     lobbyScreen.classList.add('hidden');
                     appContainer.classList.add('hidden');
@@ -817,22 +815,32 @@
                 if (enterSound) enterSound.play(); 
                 localStorage.setItem('triviaPeekWarningSeen', 'true');
                 warningScreen.classList.add('hidden');
-                gameModeScreen.classList.remove('hidden');
+                // UPDATED: Show player selection first
+                playerSelectionScreen.classList.remove('hidden');
             });
 
-            // UPDATED: Event listener for all game mode buttons
+            // UPDATED: Game mode selection now triggers game creation
             gameModeButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     selectedGameMode = button.dataset.mode;
-                    gameModeScreen.classList.add('hidden');
-                    playerSelectionScreen.classList.remove('hidden');
+                    // This is now the final step for the host before creation
+                    createGame(); 
                 });
             });
             
+            // UPDATED: Player count selection now leads to game mode screen
             document.querySelectorAll('.player-count-btn').forEach(button => {
                 button.addEventListener('click', (event) => {
+                    const playerName = playerNameInput.value.trim().toUpperCase();
+                    if (!playerName) {
+                        errorMessage.textContent = 'Please enter your name before creating a game.';
+                        return;
+                    }
+                    errorMessage.textContent = '';
+
                     selectedPlayerCount = parseInt(event.target.dataset.count, 10);
-                    createGame();
+                    playerSelectionScreen.classList.add('hidden');
+                    gameModeScreen.classList.remove('hidden');
                 });
             });
 
@@ -865,7 +873,8 @@
             // --- Initial Page Load ---
             if (localStorage.getItem('triviaPeekWarningSeen') === 'true') {
                 warningScreen.classList.add('hidden');
-                gameModeScreen.classList.remove('hidden');
+                // UPDATED: Show player selection first
+                playerSelectionScreen.classList.remove('hidden');
             } else {
                 warningScreen.classList.remove('hidden');
             }
